@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum SubmissionType {
+  PRE_JOINING
+  POST_JOINING
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  JOINED
+  REJECTED
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+  VIEWER
+}
+
+model UserProfile {
+  id             String       @id @default(uuid()) @db.Uuid
+  supabaseUserId String       @unique @db.Uuid
+  email          String       @unique
+  fullName       String?
+  role           UserRole     @default(EMPLOYEE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  submissions    Submission[]
+}
+
+model Submission {
+  id             String           @id @default(uuid()) @db.Uuid
+  referenceId    String           @unique
+  type           SubmissionType
+  status         SubmissionStatus @default(PENDING)
+  applicantName  String
+  email          String
+  position       String?
+  department     String?
+  payload        Json
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  submittedById  String           @db.Uuid
+  submittedBy    UserProfile      @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([submittedById])
+}
