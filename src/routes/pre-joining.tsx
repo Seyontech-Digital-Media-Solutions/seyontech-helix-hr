@@ -146,41 +146,51 @@ function PreJoining() {
   const back = () => setStep((s) => Math.max(0, s - 1));
 
   const submit = async () => {
-    if (!user) {
-      navigate({ to: "/login" });
-      return;
-    }
+  if (!user) {
+    navigate({ to: "/login" });
+    return;
+  }
 
-    setSubmitting(true);
-    setSubmitError("");
+  setSubmitting(true);
+  setSubmitError("");
 
-    try {
-      const { data, error } = await supabase
-        .from("Submission")
-        .insert({
-          type: "PRE_JOINING",
-          referenceId: `PRE-${Date.now()}`,
-          applicantName: form.fullName,
-          email: form.email,
-          position: form.position,
-          department: form.department,
-          payload: form,
-          submittedById: user.id,
-          updatedAt: new Date().toISOString(),
-        })
-        .select("id")
-        .single();
+  try {
+    const { data, error } = await supabase
+      .from("Submission")
+      .insert({
+        type: "PRE_JOINING",
+        referenceId: `PRE-${Date.now()}`,
+        applicantName: form.fullName,
+        email: form.email,
+        position: form.position,
+        department: form.department,
+        payload: form,
+        submittedById: user.id,
+        updatedAt: new Date().toISOString(),
+      })
+      .select("id, referenceId")  // ✅ added referenceId here
+      .single();
 
-      if (error) throw new Error(error.message);
+    if (error) throw new Error(error.message);
 
-      clearDraft(DRAFT_KEY);
-      setSubmitted(data.id);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Submission failed");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    // ✅ Send confirmation email
+    await supabase.functions.invoke("send-email", {
+      body: {
+        type: "confirmation",
+        to: form.email,          // pre-joining uses email
+        name: form.fullName,     // pre-joining uses fullName
+        referenceId: data.referenceId,
+      },
+    });
+
+    clearDraft(DRAFT_KEY);
+    setSubmitted(data.referenceId); // ✅ fixed: was data.id before
+  } catch (error) {
+    setSubmitError(error instanceof Error ? error.message : "Submission failed");
+  } finally {
+    setSubmitting(false);
+  }
+};
   
   if (submitted) {
     return (

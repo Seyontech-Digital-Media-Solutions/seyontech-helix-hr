@@ -112,13 +112,11 @@ function Admin() {
 
   // ✅ Persists status to Supabase with correct UPPERCASE enum value
   const updateStatus = async (id: string, newStatus: Status) => {
-    // 1. Optimistic UI update
     setItems((arr) => arr.map((i) => (i.id === id ? { ...i, status: newStatus } : i)));
 
     const item = items.find((i) => i.id === id);
-    if (!item || item.isSeeded) return; // skip seed rows
+    if (!item || item.isSeeded) return;
 
-    // 2. Convert UI "Approved" → DB "APPROVED" before saving
     const dbStatus = uiToDb[newStatus];
 
     const { error } = await supabase
@@ -128,10 +126,21 @@ function Admin() {
 
     if (error) {
       console.error("Failed to save status:", error);
-      // 3. Revert on failure
       setItems((arr) => arr.map((i) => (i.id === id ? { ...i, status: item.status } : i)));
       alert(`Could not save status: ${error.message}`);
+      return;
     }
+
+    // ✅ Send status update email to applicant
+    await supabase.functions.invoke("send-email", {
+      body: {
+        type: "status-update",
+        to: item.email,
+        name: item.name,
+        referenceId: item.id,
+        status: dbStatus,       // APPROVED, REJECTED, JOINED, PENDING
+      },
+    });
   };
 
   const exportCsv = () => {
@@ -185,11 +194,10 @@ function Admin() {
             <button
               key={s}
               onClick={() => setStatus(s)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                status === s
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${status === s
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               {s}
             </button>
@@ -218,9 +226,8 @@ function Admin() {
                 <tr key={i.id} className="border-t border-border transition-colors hover:bg-muted/30">
                   <td className="px-4 py-3">
                     <div className="font-mono text-xs text-muted-foreground">{i.id}</div>
-                    <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                      i.type === "pre-joining" ? "bg-primary-soft text-primary" : "bg-accent/15 text-accent"
-                    }`}>{i.type}</span>
+                    <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${i.type === "pre-joining" ? "bg-primary-soft text-primary" : "bg-accent/15 text-accent"
+                      }`}>{i.type}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-foreground">{i.name}</div>
