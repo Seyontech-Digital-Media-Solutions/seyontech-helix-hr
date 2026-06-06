@@ -13,10 +13,15 @@ export const Route = createFileRoute("/admin")({
   component: Admin,
 });
 
+// UI display values (Title case)
 type Status = "Pending" | "Approved" | "Joined" | "Rejected";
 
+// Supabase ENUM values (UPPERCASE) — must match exactly
+type DbStatus = "PENDING" | "APPROVED" | "JOINED" | "REJECTED";
+
 interface Submission {
-  id: string;
+  id: string;       // referenceId for display
+  dbId: string;     // real Supabase UUID for updates
   type: "pre-joining" | "post-joining";
   name: string;
   email: string;
@@ -24,14 +29,32 @@ interface Submission {
   department: string;
   status: Status;
   submittedAt: string;
+  isSeeded?: boolean;
 }
 
+// Convert Supabase UPPERCASE → UI Title case
+const dbToUi: Record<DbStatus, Status> = {
+  PENDING: "Pending",
+  APPROVED: "Approved",
+  JOINED: "Joined",
+  REJECTED: "Rejected",
+};
+
+// Convert UI Title case → Supabase UPPERCASE
+const uiToDb: Record<Status, DbStatus> = {
+  Pending: "PENDING",
+  Approved: "APPROVED",
+  Joined: "JOINED",
+  Rejected: "REJECTED",
+};
+
+// Only shown if Supabase returns zero rows
 const SEED: Submission[] = [
-  { id: "PRE-A8X29F1", type: "pre-joining", name: "Aarav Mehta", email: "aarav@example.com", position: "Senior Engineer", department: "Engineering", status: "Approved", submittedAt: "2026-05-22T10:14:00Z" },
-  { id: "PRE-B91KE22", type: "pre-joining", name: "Priya Iyer", email: "priya.i@example.com", position: "Product Designer", department: "Design", status: "Pending", submittedAt: "2026-05-24T08:02:00Z" },
-  { id: "PRE-C77NQ4Z", type: "pre-joining", name: "Liam Carter", email: "liam@example.com", position: "Sales Lead", department: "Sales", status: "Rejected", submittedAt: "2026-05-21T16:48:00Z" },
-  { id: "POST-D14MZ7P", type: "post-joining", name: "EMP-58231", email: "rhea@helix.hr", position: "Full-time", department: "Bangalore", status: "Joined", submittedAt: "2026-05-19T09:30:00Z" },
-  { id: "POST-E22LP3Q", type: "post-joining", name: "EMP-58244", email: "noah@helix.hr", position: "Full-time", department: "Remote", status: "Joined", submittedAt: "2026-05-18T11:11:00Z" },
+  { id: "PRE-A8X29F1", dbId: "", type: "pre-joining", name: "Aarav Mehta", email: "aarav@example.com", position: "Senior Engineer", department: "Engineering", status: "Approved", submittedAt: "2026-05-22T10:14:00Z", isSeeded: true },
+  { id: "PRE-B91KE22", dbId: "", type: "pre-joining", name: "Priya Iyer", email: "priya.i@example.com", position: "Product Designer", department: "Design", status: "Pending", submittedAt: "2026-05-24T08:02:00Z", isSeeded: true },
+  { id: "PRE-C77NQ4Z", dbId: "", type: "pre-joining", name: "Liam Carter", email: "liam@example.com", position: "Sales Lead", department: "Sales", status: "Rejected", submittedAt: "2026-05-21T16:48:00Z", isSeeded: true },
+  { id: "POST-D14MZ7P", dbId: "", type: "post-joining", name: "EMP-58231", email: "rhea@helix.hr", position: "Full-time", department: "Bangalore", status: "Joined", submittedAt: "2026-05-19T09:30:00Z", isSeeded: true },
+  { id: "POST-E22LP3Q", dbId: "", type: "post-joining", name: "EMP-58244", email: "noah@helix.hr", position: "Full-time", department: "Remote", status: "Joined", submittedAt: "2026-05-18T11:11:00Z", isSeeded: true },
 ];
 
 function Admin() {
@@ -40,30 +63,36 @@ function Admin() {
   const [status, setStatus] = useState<Status | "All">("All");
 
   useEffect(() => {
-  const fetchSubmissions = async () => {
-    const { data, error } = await supabase
-      .from("Submission")
-      .select("id, referenceId, type, applicantName, email, position, department, status, createdAt")
-      .order("createdAt", { ascending: false });
+    const fetchSubmissions = async () => {
+      const { data, error } = await supabase
+        .from("Submission")
+        .select("id, referenceId, type, applicantName, email, position, department, status, createdAt")
+        .order("createdAt", { ascending: false });
 
-    if (error) { console.error(error); return; }
+      if (error) {
+        console.error("Fetch error:", error);
+        setItems(SEED);
+        return;
+      }
 
-    const mapped: Submission[] = (data ?? []).map((s) => ({
-      id: s.referenceId ?? s.id,
-      type: s.type === "PRE_JOINING" ? "pre-joining" : "post-joining",
-      name: s.applicantName ?? "",
-      email: s.email ?? "",
-      position: s.position ?? "",
-      department: s.department ?? "",
-      status: (s.status ?? "Pending") as Status,
-      submittedAt: s.createdAt,
-    }));
+      const mapped: Submission[] = (data ?? []).map((s) => ({
+        id: s.referenceId ?? s.id,
+        dbId: s.id,                                          // real UUID for DB updates
+        type: s.type === "PRE_JOINING" ? "pre-joining" : "post-joining",
+        name: s.applicantName ?? "",
+        email: s.email ?? "",
+        position: s.position ?? "",
+        department: s.department ?? "",
+        status: dbToUi[s.status as DbStatus] ?? "Pending",  // UPPERCASE → Title case
+        submittedAt: s.createdAt,
+      }));
 
-    setItems([...mapped, ...SEED]);
-  };
+      // Only show seed if DB is empty
+      setItems(mapped.length > 0 ? mapped : SEED);
+    };
 
-  fetchSubmissions();
-}, []);
+    fetchSubmissions();
+  }, []);
 
   const filtered = useMemo(() => {
     return items.filter((i) => {
@@ -81,8 +110,28 @@ function Admin() {
     joined: items.filter((i) => i.status === "Joined").length,
   }), [items]);
 
-  const updateStatus = (id: string, s: Status) => {
-    setItems((arr) => arr.map((i) => (i.id === id ? { ...i, status: s } : i)));
+  // ✅ Persists status to Supabase with correct UPPERCASE enum value
+  const updateStatus = async (id: string, newStatus: Status) => {
+    // 1. Optimistic UI update
+    setItems((arr) => arr.map((i) => (i.id === id ? { ...i, status: newStatus } : i)));
+
+    const item = items.find((i) => i.id === id);
+    if (!item || item.isSeeded) return; // skip seed rows
+
+    // 2. Convert UI "Approved" → DB "APPROVED" before saving
+    const dbStatus = uiToDb[newStatus];
+
+    const { error } = await supabase
+      .from("Submission")
+      .update({ status: dbStatus })
+      .eq("id", item.dbId);
+
+    if (error) {
+      console.error("Failed to save status:", error);
+      // 3. Revert on failure
+      setItems((arr) => arr.map((i) => (i.id === id ? { ...i, status: item.status } : i)));
+      alert(`Could not save status: ${error.message}`);
+    }
   };
 
   const exportCsv = () => {
