@@ -457,7 +457,20 @@ function ProfessionalStep({ form, set }: StepProps) {
   );
 }
 
+async function uploadFile(file: File, fieldKey: string, userId: string): Promise<string> {
+  const ext = file.name.split(".").pop();
+  const path = `${userId}/${fieldKey}_${Date.now()}.${ext}`;
+  const { error } = await supabase.storage
+    .from("onboarding-documents")
+    .upload(path, file, { upsert: true });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
 function DocumentsStep({ form, set }: StepProps) {
+  const { user } = useAuth();
+  const [uploading, setUploading] = useState<Partial<Record<keyof FormState, boolean>>>({});
+
   const files: Array<[keyof FormState, string]> = [
     ["fileAadhaar", "Aadhaar card"],
     ["filePan", "PAN card"],
@@ -466,6 +479,20 @@ function DocumentsStep({ form, set }: StepProps) {
     ["fileEdu", "Educational certificates"],
     ["fileExp", "Experience certificates"],
   ];
+
+  const handleFile = async (key: keyof FormState, file: File | null) => {
+    if (!file || !user) return;
+    setUploading((u) => ({ ...u, [key]: true }));
+    try {
+      const path = await uploadFile(file, key, user.id);
+      set(key, path as FormState[typeof key]);
+    } catch (err) {
+      alert(`Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setUploading((u) => ({ ...u, [key]: false }));
+    }
+  };
+
   return (
     <div className="space-y-5">
       <SectionTitle
@@ -477,8 +504,11 @@ function DocumentsStep({ form, set }: StepProps) {
           <FileDrop
             key={key}
             label={label}
-            fileName={form[key] as string}
-            onChange={(file) => set(key, (file?.name ?? "") as FormState[typeof key])}
+            fileName={
+              uploading[key] ? "Uploading…" :
+              form[key] ? "✅ Uploaded" : ""
+            }
+            onChange={(file) => handleFile(key, file)}
           />
         ))}
       </div>

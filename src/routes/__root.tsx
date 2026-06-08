@@ -147,7 +147,7 @@ function RootComponent() {
     "/forgot-password",
     "/reset-password",
     "/auth/callback",
-  ].includes(path);
+  ].includes(path) || path.startsWith("/status/");
 
   return (
     <QueryClientProvider client={queryClient}>

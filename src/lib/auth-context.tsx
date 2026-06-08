@@ -75,12 +75,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadProfile();
   };
 
-  const signOut = async () => {
+const signOut = async () => {
+  try {
     await supabase.auth.signOut();
+  } catch (e) {
+    console.error("Sign out error:", e);
+  } finally {
     setSession(null);
     setProfile(null);
-    window.location.href = "/login";
-  };
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 100);
+  }
+};
 
   const role = profile?.role ?? null;
   const permissions = role ? getRolePermissions(role) : [];
