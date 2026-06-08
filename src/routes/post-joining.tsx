@@ -139,6 +139,16 @@ function PostJoining() {
 
       if (error) throw new Error(error.message);
 
+      // ✅ Send confirmation email
+      await supabase.functions.invoke("send-email", {
+        body: {
+          type: "confirmation",
+          to: form.officialEmail,        // post-joining uses officialEmail
+          name: form.employeeId,
+          referenceId: data.referenceId,
+        },
+      });
+
       clearDraft(DRAFT_KEY);
       setSubmitted(data.referenceId);
     } catch (error) {
