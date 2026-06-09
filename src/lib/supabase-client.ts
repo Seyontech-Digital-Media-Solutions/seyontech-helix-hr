@@ -45,11 +45,11 @@ export async function getMyProfile(): Promise<Profile | null> {
   const userId = sessionData.session?.user?.id;
   if (!userId) return null;
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
+ const { data, error } = await supabase
+  .from("profiles")
+  .select("*")
+  .eq("id", userId)
+  .maybeSingle(); // ← returns null instead of erroring when no row found
 
   if (error) {
     console.error("[supabase] getMyProfile error:", error.message);
