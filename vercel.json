@@ -1,1 +1,1 @@
-{"buildCommand":"npm run build","outputDirectory":"dist/client","rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
+{"version":2,"builds":[{"src":"dist/server/server.js","use":"@vercel/node"}],"routes":[{"src":"/_build/(.*)","dest":"/dist/client/_build/$1"},{"src":"/assets/(.*)","dest":"/dist/client/assets/$1"},{"src":"/(.*)","dest":"/dist/server/server.js"}]}
