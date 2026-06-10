@@ -1,1 +1,12 @@
-{"rewrites":[{"source":"/assets/(.*)","destination":"/assets/$1"},{"source":"/(.*)","destination":"/index.html"}]}
+{
+  "rewrites": [
+    {
+      "source": "/assets/(.*)",
+      "destination": "/dist/client/assets/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/dist/server/index.mjs"
+    }
+  ]
+}
