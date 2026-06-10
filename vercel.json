@@ -1,14 +1,3 @@
 {
-  "buildCommand": "npx prisma generate && vite build",
-  "outputDirectory": "dist/client",
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/dist/server/index.mjs"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/server/index.mjs"
-    }
-  ]
+  "buildCommand": "npx prisma generate && vite build"
 }
