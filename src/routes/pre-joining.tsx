@@ -2,10 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import { Stepper } from "@/components/form-stepper";
-<<<<<<< HEAD
-=======
+
 import { uploadFile } from "@/lib/supabaseStorage";
->>>>>>> a37b810 (feat: add all source files to UAT branch)
+
 import {
   Field,
   FileDrop,
@@ -461,20 +460,6 @@ function ProfessionalStep({ form, set }: StepProps) {
   );
 }
 
-<<<<<<< HEAD
-async function uploadFile(file: File, fieldKey: string, userId: string): Promise<string> {
-  const ext = file.name.split(".").pop();
-  const path = `${userId}/${fieldKey}_${Date.now()}.${ext}`;
-  const { error } = await supabase.storage
-    .from("onboarding-documents")
-    .upload(path, file, { upsert: true });
-  if (error) throw new Error(error.message);
-  return path;
-}
-=======
-
->>>>>>> a37b810 (feat: add all source files to UAT branch)
-
 function DocumentsStep({ form, set }: StepProps) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState<Partial<Record<keyof FormState, boolean>>>({});
@@ -488,20 +473,7 @@ function DocumentsStep({ form, set }: StepProps) {
     ["fileExp", "Experience certificates"],
   ];
 
-<<<<<<< HEAD
-  const handleFile = async (key: keyof FormState, file: File | null) => {
-    if (!file || !user) return;
-    setUploading((u) => ({ ...u, [key]: true }));
-    try {
-      const path = await uploadFile(file, key, user.id);
-      set(key, path as FormState[typeof key]);
-    } catch (err) {
-      alert(`Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-    } finally {
-      setUploading((u) => ({ ...u, [key]: false }));
-    }
-  };
-=======
+
  
 
 
@@ -517,7 +489,7 @@ const handleFile = async (key: keyof FormState, file: File | null) => {
     setUploading((u) => ({ ...u, [key]: false }));
   }
 };
->>>>>>> a37b810 (feat: add all source files to UAT branch)
+
 
   return (
     <div className="space-y-5">

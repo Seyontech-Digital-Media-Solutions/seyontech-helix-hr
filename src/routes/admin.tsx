@@ -80,15 +80,7 @@ const POST_FIELDS: Record<string, string> = {
 
 const FILE_KEYS = new Set(["fileAadhaar", "filePan", "fileResume", "filePhoto", "fileEdu", "fileExp"]);
 const LINK_KEYS = new Set(["linkedin", "portfolio"]);
-<<<<<<< HEAD
-const STORAGE_BUCKET = "onboarding-documents";
 
-async function getSignedUrl(filePath: string): Promise<string | null> {
-  const { data, error } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .createSignedUrl(filePath, 60 * 60);
-  if (error) { console.error("Signed URL error:", error); return null; }
-=======
 const BUCKETS = {
   preJoining: import.meta.env.VITE_BUCKET_PRE_JOINING as string,
   postJoining: import.meta.env.VITE_BUCKET_POST_JOINING as string,
@@ -116,8 +108,7 @@ async function getSignedUrl(filePath: string): Promise<string | null> {
     return fallback.signedUrl;
   }
 
->>>>>>> a37b810 (feat: add all source files to UAT branch)
-  return data.signedUrl;
+ return data.signedUrl;
 }
 
 // ─── Doc Preview Modal ────────────────────────────────────────────────────────
