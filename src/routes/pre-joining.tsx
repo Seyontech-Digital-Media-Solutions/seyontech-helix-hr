@@ -126,7 +126,6 @@ function PreJoining() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
-  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
     setForm(loadDraft(DRAFT_KEY, initial));
@@ -146,15 +145,7 @@ function PreJoining() {
 
   const stepValid = useMemo(() => validateStep(step, form), [step, form]);
 
-  
-const next = () => {
-  if (!stepValid) {
-    setTouched(true);
-    return;
-  }
-  setTouched(false);
-  setStep((s) => Math.min(STEPS.length - 1, s + 1));
-};
+  const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
 
   const submit = async () => {
@@ -235,11 +226,11 @@ const next = () => {
         <Stepper steps={STEPS} current={step} onJump={setStep} />
 
         <div className="mt-7 space-y-6">
-          {step === 0 && <PersonalStep form={form} set={set} touched={touched} />}
-          {step === 1 && <ProfessionalStep form={form} set={set} touched={touched} />}
-          {step === 2 && <DocumentsStep form={form} set={set} touched={touched} />}
-          {step === 3 && <BankStep form={form} set={set} touched={touched} />}
-          {step === 4 && <ReviewStep form={form} set={set} touched={touched} />}
+          {step === 0 && <PersonalStep form={form} set={set} />}
+          {step === 1 && <ProfessionalStep form={form} set={set} />}
+          {step === 2 && <DocumentsStep form={form} set={set} />}
+          {step === 3 && <BankStep form={form} set={set} />}
+          {step === 4 && <ReviewStep form={form} set={set} />}
         </div>
 
         {submitError && (
@@ -299,20 +290,9 @@ function validateStep(step: number, f: FormState): boolean {
 type StepProps = {
   form: FormState;
   set: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
-  touched?: boolean;  // 👈 add this
 };
 
-// Add this above PersonalStep
-function Err({ show, msg }: { show: boolean; msg: string }) {
-  if (!show) return null;
-  return (
-    <p className="mt-1 text-xs font-medium text-destructive flex items-center gap-1">
-      ⚠ {msg}
-    </p>
-  );
-}
-
-function PersonalStep({ form, set, touched = false }: StepProps) {
+function PersonalStep({ form, set }: StepProps) {
   return (
     <div className="space-y-5">
       <SectionTitle
@@ -326,18 +306,10 @@ function PersonalStep({ form, set, touched = false }: StepProps) {
             onChange={(e) => set("fullName", e.target.value)}
             placeholder="Jane Doe"
           />
-          <Err show={touched && !form.fullName} msg="Full name is required" />
         </Field>
-
         <Field label="Date of birth" required>
-          <TextInput
-            type="date"
-            value={form.dob}
-            onChange={(e) => set("dob", e.target.value)}
-          />
-          <Err show={touched && !form.dob} msg="Date of birth is required" />
+          <TextInput type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)} />
         </Field>
-
         <Field label="Gender" required>
           <Select value={form.gender} onChange={(e) => set("gender", e.target.value)}>
             <option value="">Select</option>
@@ -346,9 +318,7 @@ function PersonalStep({ form, set, touched = false }: StepProps) {
             <option>Non-binary</option>
             <option>Prefer not to say</option>
           </Select>
-          <Err show={touched && !form.gender} msg="Please select your gender" />
         </Field>
-
         <Field label="Blood group">
           <Select value={form.bloodGroup} onChange={(e) => set("bloodGroup", e.target.value)}>
             <option value="">Select</option>
@@ -357,7 +327,6 @@ function PersonalStep({ form, set, touched = false }: StepProps) {
             ))}
           </Select>
         </Field>
-
         <Field label="Mobile number" required>
           <TextInput
             type="tel"
@@ -365,9 +334,7 @@ function PersonalStep({ form, set, touched = false }: StepProps) {
             onChange={(e) => set("mobile", e.target.value)}
             placeholder="+91 98765 43210"
           />
-          <Err show={touched && !form.mobile} msg="Mobile number is required" />
         </Field>
-
         <Field label="Alternate number">
           <TextInput
             type="tel"
@@ -375,7 +342,6 @@ function PersonalStep({ form, set, touched = false }: StepProps) {
             onChange={(e) => set("altMobile", e.target.value)}
           />
         </Field>
-
         <Field label="Email address" required className="sm:col-span-2">
           <TextInput
             type="email"
@@ -383,31 +349,25 @@ function PersonalStep({ form, set, touched = false }: StepProps) {
             onChange={(e) => set("email", e.target.value)}
             placeholder="jane@example.com"
           />
-          <Err show={touched && !form.email} msg="Email address is required" />
         </Field>
-
-        <Field label="Current address" required className="sm:col-span-2">
+        <Field label="Current address" className="sm:col-span-2">
           <TextArea
             value={form.currentAddress}
             onChange={(e) => set("currentAddress", e.target.value)}
           />
-          <Err show={touched && !form.currentAddress} msg="Current address is required" />
         </Field>
-
         <Field label="Permanent address" className="sm:col-span-2">
           <TextArea
             value={form.permanentAddress}
             onChange={(e) => set("permanentAddress", e.target.value)}
           />
         </Field>
-
         <Field label="Emergency contact person">
           <TextInput
             value={form.emergencyName}
             onChange={(e) => set("emergencyName", e.target.value)}
           />
         </Field>
-
         <Field label="Emergency contact number">
           <TextInput
             type="tel"
@@ -479,15 +439,15 @@ function ProfessionalStep({ form, set }: StepProps) {
             placeholder="TypeScript, React, PostgreSQL"
           />
         </Field>
-        <Field label="LinkedIn profile" required>
+        <Field label="LinkedIn profile">
           <TextInput
             type="url"
             value={form.linkedin}
             onChange={(e) => set("linkedin", e.target.value)}
-            placeholder="https://linkedin.com/in/..." 
+            placeholder="https://linkedin.com/in/..."
           />
         </Field>
-        <Field label="Portfolio / GitHub URL" required>
+        <Field label="Portfolio / GitHub URL">
           <TextInput
             type="url"
             value={form.portfolio}
@@ -500,7 +460,7 @@ function ProfessionalStep({ form, set }: StepProps) {
   );
 }
 
-function DocumentsStep({ form, set, touched }: StepProps) {
+function DocumentsStep({ form, set }: StepProps) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState<Partial<Record<keyof FormState, boolean>>>({});
 
@@ -513,100 +473,82 @@ function DocumentsStep({ form, set, touched }: StepProps) {
     ["fileExp", "Experience certificates"],
   ];
 
-  const handleFile = async (key: keyof FormState, file: File | null) => {
-    if (!file || !user) return;
-    setUploading((u) => ({ ...u, [key]: true }));
-    try {
-      const path = await uploadFile(
-        file,
-        key,
-        user.id,
-        "pre-joining",
-        form.fullName
-      );
-      set(key, path as FormState[typeof key]);
-    } catch (err) {
-      alert(`Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-    } finally {
-      setUploading((u) => ({ ...u, [key]: false }));
-    }
-  };
+
+ 
+
+
+// Pass form.fullName as the folder name
+const handleFile = async (key: keyof FormState, file: File | null) => {
+  if (!file || !user) return;
+  setUploading((u) => ({ ...u, [key]: true }));
+  try {
+    const path = await uploadFile(
+      file,
+      key,
+      user.id,
+      "pre-joining",
+      form.fullName   // 👈 pass the name here
+    );
+    set(key, path as FormState[typeof key]);
+  } catch (err) {
+    alert(`Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+  } finally {
+    setUploading((u) => ({ ...u, [key]: false }));
+  }
+};
+
 
   return (
     <div className="space-y-5">
       <SectionTitle
         title="Documents"
-        description="All 6 documents required. Upload clear scans or photos."
+        description="Upload clear scans or photos. PDF or image formats."
       />
-
-      {/* ✅ Banner when touched and any file missing */}
-      {touched && !(form.fileAadhaar && form.filePan && form.fileResume && form.filePhoto && form.fileEdu && form.fileExp) && (
-        <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-500 flex items-center gap-2">
-          ⚠ Please upload all 6 required documents before continuing.
-        </div>
-      )}
-
       <div className="grid gap-3 sm:grid-cols-2">
         {files.map(([key, label]) => (
-          <div key={key}>
-            <FileDrop
-              label={label}
-              fileName={
-                uploading[key] ? "Uploading…" :
-                form[key] ? "✅ Uploaded" : ""
-              }
-              onChange={(file) => handleFile(key, file)}
-            />
-            {/* ✅ Red error per file */}
-            {touched && !form[key] && (
-              <p className="mt-1 text-xs font-medium text-red-500 flex items-center gap-1">
-                ● {label} is required.
-              </p>
-            )}
-          </div>
+          <FileDrop
+            key={key}
+            label={label}
+            fileName={
+              uploading[key] ? "Uploading…" :
+              form[key] ? "✅ Uploaded" : ""
+            }
+            onChange={(file) => handleFile(key, file)}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function BankStep({ form, set, touched }: StepProps) {
+function BankStep({ form, set }: StepProps) {
   return (
     <div className="space-y-5">
       <SectionTitle title="Bank Details" description="For salary credit." />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Bank name" required>
           <TextInput value={form.bankName} onChange={(e) => set("bankName", e.target.value)} />
-          <Err show={!!(touched && !form.bankName)} msg="Bank name is required" />
         </Field>
-
-        <Field label="Account holder name" required>
+        <Field label="Account holder name">
           <TextInput
             value={form.accountHolder}
             onChange={(e) => set("accountHolder", e.target.value)}
           />
-          <Err show={!!(touched && !form.accountHolder)} msg="Account holder name is required" />
         </Field>
-
         <Field label="Account number" required>
           <TextInput
             value={form.accountNumber}
             onChange={(e) => set("accountNumber", e.target.value)}
           />
-          <Err show={!!(touched && !form.accountNumber)} msg="Account number is required" />
         </Field>
-
         <Field label="IFSC code" required>
           <TextInput
             value={form.ifsc}
             onChange={(e) => set("ifsc", e.target.value.toUpperCase())}
           />
-          <Err show={!!(touched && !form.ifsc)} msg="IFSC code is required" />
         </Field>
-
-        <Field label="Branch name" required className="sm:col-span-2">
+        <Field label="Branch name" className="sm:col-span-2">
           <TextInput value={form.branch} onChange={(e) => set("branch", e.target.value)} />
-          <Err show={!!(touched && !form.branch)} msg="Branch name is required" />
         </Field>
       </div>
     </div>
