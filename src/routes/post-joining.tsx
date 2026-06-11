@@ -91,7 +91,6 @@ function PostJoining() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
-  const [touched, setTouched] = useState(false);
 
   useEffect(() => setForm(loadDraft(DRAFT_KEY, initial)), []);
   useEffect(() => {
@@ -106,24 +105,11 @@ function PostJoining() {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
- const stepValid = useMemo(() => {
-  if (step === 0)
-    return !!(
-      form.employeeId &&
-      form.officialEmail &&
-      form.joiningDate &&
-      form.employmentType &&
-      form.workLocation &&
-      form.reportingManager &&
-      form.shift
-    );
-  if (step === 1)
-    return !!(form.uan && form.pf && form.ctc);
-  if (step === 2) return true;
-  if (step === 3)
-    return form.nda && form.companyPolicy && form.leavePolicy;
-  return true;
-}, [step, form]);
+  const stepValid = useMemo(() => {
+    if (step === 0) return !!(form.employeeId && form.officialEmail && form.joiningDate);
+    if (step === 3) return form.nda && form.companyPolicy && form.leavePolicy;
+    return true;
+  }, [step, form]);
 
   const submit = async () => {
     if (!user) {
@@ -203,151 +189,96 @@ function PostJoining() {
 
         <div className="mt-7 space-y-6">
           {step === 0 && (
-  <div className="space-y-5">
-    <SectionTitle title="Employment Details" />
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Employee ID" required hint="Auto-generated">
-        <TextInput value={form.employeeId} readOnly className="font-mono" />
-      </Field>
-
-      <Field label="Official email" required>
-        <TextInput
-          type="email"
-          value={form.officialEmail}
-          onChange={(e) => set("officialEmail", e.target.value)}
-          className={touched && !form.officialEmail ? "border-red-500" : ""}
-        />
-        {touched && !form.officialEmail && (
-          <p className="mt-1 text-xs font-medium text-red-500">● Official email is required.</p>
-        )}
-      </Field>
-
-      <Field label="Reporting manager" required>
-        <TextInput
-          value={form.reportingManager}
-          onChange={(e) => set("reportingManager", e.target.value)}
-          className={touched && !form.reportingManager ? "border-red-500" : ""}
-        />
-        {touched && !form.reportingManager && (
-          <p className="mt-1 text-xs font-medium text-red-500">● Reporting manager is required.</p>
-        )}
-      </Field>
-
-      <Field label="Work location" required>
-        <TextInput
-          value={form.workLocation}
-          onChange={(e) => set("workLocation", e.target.value)}
-          className={touched && !form.workLocation ? "border-red-500" : ""}
-        />
-        {touched && !form.workLocation && (
-          <p className="mt-1 text-xs font-medium text-red-500">● Work location is required.</p>
-        )}
-      </Field>
-
-      <Field label="Employment type" required>
-        <Select
-          value={form.employmentType}
-          onChange={(e) => set("employmentType", e.target.value)}
-          className={touched && !form.employmentType ? "border-red-500" : ""}
-        >
-          <option value="">Select</option>
-          {["Full-time", "Part-time", "Contract", "Intern"].map((x) => (
-            <option key={x}>{x}</option>
-          ))}
-        </Select>
-        {touched && !form.employmentType && (
-          <p className="mt-1 text-xs font-medium text-red-500">● Please select employment type.</p>
-        )}
-      </Field>
-
-      <Field label="Shift timing" required>
-        <TextInput
-          value={form.shift}
-          onChange={(e) => set("shift", e.target.value)}
-          placeholder="10:00 – 19:00"
-          className={touched && !form.shift ? "border-red-500" : ""}
-        />
-        {touched && !form.shift && (
-          <p className="mt-1 text-xs font-medium text-red-500">● Shift timing is required.</p>
-        )}
-      </Field>
-
-      <Field label="Date of joining" required>
-        <TextInput
-          type="date"
-          value={form.joiningDate}
-          onChange={(e) => set("joiningDate", e.target.value)}
-          className={touched && !form.joiningDate ? "border-red-500" : ""}
-        />
-        {touched && !form.joiningDate && (
-          <p className="mt-1 text-xs font-medium text-red-500">● Joining date is required.</p>
-        )}
-      </Field>
-    </div>
-  </div>
-)}
+            <div className="space-y-5">
+              <SectionTitle title="Employment Details" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Employee ID" required hint="Auto-generated">
+                  <TextInput value={form.employeeId} readOnly className="font-mono" />
+                </Field>
+                <Field label="Official email" required>
+                  <TextInput
+                    type="email"
+                    value={form.officialEmail}
+                    onChange={(e) => set("officialEmail", e.target.value)}
+                  />
+                </Field>
+                <Field label="Reporting manager">
+                  <TextInput
+                    value={form.reportingManager}
+                    onChange={(e) => set("reportingManager", e.target.value)}
+                  />
+                </Field>
+                <Field label="Work location">
+                  <TextInput
+                    value={form.workLocation}
+                    onChange={(e) => set("workLocation", e.target.value)}
+                  />
+                </Field>
+                <Field label="Employment type">
+                  <Select
+                    value={form.employmentType}
+                    onChange={(e) => set("employmentType", e.target.value)}
+                  >
+                    <option value="">Select</option>
+                    {["Full-time", "Part-time", "Contract", "Intern"].map((x) => (
+                      <option key={x}>{x}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Shift timing">
+                  <TextInput
+                    value={form.shift}
+                    onChange={(e) => set("shift", e.target.value)}
+                    placeholder="10:00 – 19:00"
+                  />
+                </Field>
+                <Field label="Date of joining" required>
+                  <TextInput
+                    type="date"
+                    value={form.joiningDate}
+                    onChange={(e) => set("joiningDate", e.target.value)}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
 
           {step === 1 && (
-  <div className="space-y-5">
-    <SectionTitle title="HR & Payroll" />
-    <div className="grid gap-4 sm:grid-cols-2">
-
-      <Field label="UAN number" required>
-        <TextInput
-          value={form.uan}
-          onChange={(e) => set("uan", e.target.value)}
-          className={touched && !form.uan ? "border-red-500" : ""}
-        />
-        {touched && !form.uan && (
-          <p className="mt-1 text-xs font-medium text-red-500">● UAN number is required.</p>
-        )}
-      </Field>
-
-      <Field label="PF number" required>
-        <TextInput
-          value={form.pf}
-          onChange={(e) => set("pf", e.target.value)}
-          className={touched && !form.pf ? "border-red-500" : ""}
-        />
-        {touched && !form.pf && (
-          <p className="mt-1 text-xs font-medium text-red-500">● PF number is required.</p>
-        )}
-      </Field>
-
-      <Field label="ESIC number">
-        <TextInput value={form.esic} onChange={(e) => set("esic", e.target.value)} />
-      </Field>
-
-      <Field label="CTC (per annum)" required>
-        <TextInput
-          value={form.ctc}
-          onChange={(e) => set("ctc", e.target.value)}
-          placeholder="₹ 12,00,000"
-          className={touched && !form.ctc ? "border-red-500" : ""}
-        />
-        {touched && !form.ctc && (
-          <p className="mt-1 text-xs font-medium text-red-500">● CTC is required.</p>
-        )}
-      </Field>
-
-      <Field label="Salary structure" className="sm:col-span-2">
-        <TextInput
-          value={form.salaryStructure}
-          onChange={(e) => set("salaryStructure", e.target.value)}
-          placeholder="Basic + HRA + Special"
-        />
-      </Field>
-
-      <Field label="Insurance details" className="sm:col-span-2">
-        <TextInput
-          value={form.insurance}
-          onChange={(e) => set("insurance", e.target.value)}
-        />
-      </Field>
-
-    </div>
-  </div>
-)}
+            <div className="space-y-5">
+              <SectionTitle title="HR & Payroll" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="UAN number">
+                  <TextInput value={form.uan} onChange={(e) => set("uan", e.target.value)} />
+                </Field>
+                <Field label="PF number">
+                  <TextInput value={form.pf} onChange={(e) => set("pf", e.target.value)} />
+                </Field>
+                <Field label="ESIC number">
+                  <TextInput value={form.esic} onChange={(e) => set("esic", e.target.value)} />
+                </Field>
+                <Field label="CTC (per annum)">
+                  <TextInput
+                    value={form.ctc}
+                    onChange={(e) => set("ctc", e.target.value)}
+                    placeholder="₹ 12,00,000"
+                  />
+                </Field>
+                <Field label="Salary structure" className="sm:col-span-2">
+                  <TextInput
+                    value={form.salaryStructure}
+                    onChange={(e) => set("salaryStructure", e.target.value)}
+                    placeholder="Basic + HRA + Special"
+                  />
+                </Field>
+                <Field label="Insurance details" className="sm:col-span-2">
+                  <TextInput
+                    value={form.insurance}
+                    onChange={(e) => set("insurance", e.target.value)}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
 
           {step === 2 && (
             <div className="space-y-5">
@@ -437,14 +368,8 @@ function PostJoining() {
             {step < STEPS.length - 1 ? (
               <button
                 type="button"
-                onClick={() => {
-  if (!stepValid) {
-    setTouched(true);
-    return;
-  }
-  setTouched(false);
-  setStep((s) => Math.min(STEPS.length - 1, s + 1));
-}}
+                onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+                disabled={!stepValid}
                 className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
               >
                 Continue <ArrowRight className="h-4 w-4" />
