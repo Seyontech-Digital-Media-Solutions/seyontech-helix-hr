@@ -1,3 +1,4 @@
+import type { AuthChangeEvent } from "@supabase/supabase-js";
 import {
   createContext,
   useContext,
@@ -49,15 +50,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // initial session
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: s } }: { data: { session: Session | null } }) => {
       setSession(s);
       if (s) await loadProfile();
       setLoading(false);
     });
 
     // listen for sign-in / sign-out
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, s) => {
+   const { data: { subscription } } = supabase.auth.onAuthStateChange(
+  async (_event: AuthChangeEvent, s: Session | null) => {
         setSession(s);
         if (s) {
           await loadProfile();

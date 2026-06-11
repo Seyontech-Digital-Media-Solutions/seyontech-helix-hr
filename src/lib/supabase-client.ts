@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import * as supabaseJs from "@supabase/supabase-js";
+const { createClient } = supabaseJs as any;
 import { 
   ROLES,
   PERMISSIONS,

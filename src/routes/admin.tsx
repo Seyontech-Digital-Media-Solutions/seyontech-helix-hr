@@ -81,6 +81,10 @@ const POST_FIELDS: Record<string, string> = {
 const FILE_KEYS = new Set(["fileAadhaar", "filePan", "fileResume", "filePhoto", "fileEdu", "fileExp"]);
 const LINK_KEYS = new Set(["linkedin", "portfolio"]);
 
+const STORAGE_BUCKET = "onboarding-documents";
+
+
+
 const BUCKETS = {
   preJoining: import.meta.env.VITE_BUCKET_PRE_JOINING as string,
   postJoining: import.meta.env.VITE_BUCKET_POST_JOINING as string,
@@ -108,7 +112,8 @@ async function getSignedUrl(filePath: string): Promise<string | null> {
     return fallback.signedUrl;
   }
 
- return data.signedUrl;
+
+  return data.signedUrl;
 }
 
 // ─── Doc Preview Modal ────────────────────────────────────────────────────────
@@ -583,7 +588,7 @@ function Admin() {
 
       if (error) { console.error("Fetch error:", error); setItems(SEED); return; }
 
-      const mapped: Submission[] = (data ?? []).map((s) => ({
+      const mapped: Submission[] = (data ?? []).map((s: any) => ({
         id: s.referenceId ?? s.id,
         dbId: s.id,
         type: s.type === "PRE_JOINING" ? "pre-joining" : "post-joining",
