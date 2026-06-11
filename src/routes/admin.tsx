@@ -80,6 +80,7 @@ const POST_FIELDS: Record<string, string> = {
 
 const FILE_KEYS = new Set(["fileAadhaar", "filePan", "fileResume", "filePhoto", "fileEdu", "fileExp"]);
 const LINK_KEYS = new Set(["linkedin", "portfolio"]);
+<<<<<<< HEAD
 const STORAGE_BUCKET = "onboarding-documents";
 
 async function getSignedUrl(filePath: string): Promise<string | null> {
@@ -87,6 +88,35 @@ async function getSignedUrl(filePath: string): Promise<string | null> {
     .from(STORAGE_BUCKET)
     .createSignedUrl(filePath, 60 * 60);
   if (error) { console.error("Signed URL error:", error); return null; }
+=======
+const BUCKETS = {
+  preJoining: import.meta.env.VITE_BUCKET_PRE_JOINING as string,
+  postJoining: import.meta.env.VITE_BUCKET_POST_JOINING as string,
+}
+
+// ✅ Replace the entire getSignedUrl function
+async function getSignedUrl(filePath: string): Promise<string | null> {
+  // Detect bucket based on file path prefix
+  // Files are stored as: userId/fieldKey_timestamp.ext
+  // Pre-joining file keys: fileAadhaar, filePan, fileResume, filePhoto, fileEdu, fileExp
+  const isPreJoining = /\/(fileAadhaar|filePan|fileResume|filePhoto|fileEdu|fileExp)_/.test(filePath)
+  const bucket = isPreJoining ? BUCKETS.preJoining : BUCKETS.postJoining
+
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(filePath, 60 * 60);
+
+  if (error) {
+    console.error("Signed URL error:", error);
+    // Fallback: try old bucket for legacy files
+    const { data: fallback, error: fallbackError } = await supabase.storage
+      .from("onboarding-documents")
+      .createSignedUrl(filePath, 60 * 60);
+    if (fallbackError) { console.error("Fallback error:", fallbackError); return null; }
+    return fallback.signedUrl;
+  }
+
+>>>>>>> a37b810 (feat: add all source files to UAT branch)
   return data.signedUrl;
 }
 
