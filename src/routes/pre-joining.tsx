@@ -477,11 +477,18 @@ function DocumentsStep({ form, set }: StepProps) {
  
 
 
+// Pass form.fullName as the folder name
 const handleFile = async (key: keyof FormState, file: File | null) => {
   if (!file || !user) return;
   setUploading((u) => ({ ...u, [key]: true }));
   try {
-    const path = await uploadFile(file, key, user.id, "pre-joining");
+    const path = await uploadFile(
+      file,
+      key,
+      user.id,
+      "pre-joining",
+      form.fullName   // 👈 pass the name here
+    );
     set(key, path as FormState[typeof key]);
   } catch (err) {
     alert(`Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
