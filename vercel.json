@@ -1,7 +1,7 @@
 {
   "functions": {
     "dist/server/server.js": {
-      "includeFiles": "node_modules/tslib/**"
+      "includeFiles": "node_modules/**"
     }
   }
 }
