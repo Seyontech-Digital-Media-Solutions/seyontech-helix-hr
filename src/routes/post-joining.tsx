@@ -23,6 +23,8 @@ export const Route = createFileRoute("/post-joining")({
 
 const DRAFT_KEY = "ho_postjoin_v1";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface FormState {
   employeeId: string;
   officialEmail: string;
@@ -45,6 +47,12 @@ interface FormState {
   nda: boolean;
   companyPolicy: boolean;
   leavePolicy: boolean;
+}
+
+type FormErrors = Partial<Record<keyof FormState, string>>;
+
+function autoEmpId() {
+  return "EMP-" + Math.floor(10000 + Math.random() * 89999);
 }
 
 const initial: FormState = {
@@ -71,10 +79,6 @@ const initial: FormState = {
   leavePolicy: false,
 };
 
-function autoEmpId() {
-  return "EMP-" + Math.floor(10000 + Math.random() * 89999);
-}
-
 const STEPS = [
   { id: "employment", label: "Employment" },
   { id: "payroll", label: "HR & Payroll" },
@@ -82,17 +86,67 @@ const STEPS = [
   { id: "agreement", label: "Agreement" },
 ];
 
+// ─── Validation ───────────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateStepFields(step: number, f: FormState): FormErrors {
+  const errors: FormErrors = {};
+
+  if (step === 0) {
+    if (!f.employeeId.trim()) errors.employeeId = "Employee ID is required.";
+    if (!f.officialEmail.trim()) {
+      errors.officialEmail = "Official email is required.";
+    } else if (!EMAIL_RE.test(f.officialEmail.trim())) {
+      errors.officialEmail = "Enter a valid email address.";
+    }
+    if (!f.joiningDate) errors.joiningDate = "Date of joining is required.";
+    if (!f.reportingManager.trim()) errors.reportingManager = "Reporting manager is required.";
+    if (!f.workLocation.trim()) errors.workLocation = "Work location is required.";
+    if (!f.employmentType) errors.employmentType = "Please select an employment type.";
+  }
+
+  if (step === 1) {
+  if (!f.uan.trim()) errors.uan = "UAN number is required.";
+  if (!f.pf.trim()) errors.pf = "PF number is required.";
+  if (!f.esic.trim()) errors.esic = "ESIC number is required.";
+  if (!f.ctc.trim()) errors.ctc = "CTC is required.";
+  if (!f.salaryStructure.trim()) errors.salaryStructure = "Salary structure is required.";
+  if (!f.insurance.trim()) errors.insurance = "Insurance details are required.";
+}
+  if (step === 2) {
+  if (!f.laptop.trim()) errors.laptop = "Laptop assignment is required.";
+  if (!f.systemId.trim()) errors.systemId = "System ID is required.";
+  if (!f.softwareAccess.trim()) errors.softwareAccess = "Software access details are required.";
+  if (!f.idCard) errors.idCard = "ID card must be issued before proceeding.";
+  if (!f.emailAccess) errors.emailAccess = "Email access must be provided before proceeding.";
+}
+
+  if (step === 3) {
+    if (!f.nda) errors.nda = "You must accept the NDA.";
+    if (!f.companyPolicy) errors.companyPolicy = "You must accept the Company Policy.";
+    if (!f.leavePolicy) errors.leavePolicy = "You must accept the Leave Policy.";
+  }
+
+  return errors;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 function PostJoining() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [form, setForm] = useState<FormState>(initial);
   const [step, setStep] = useState(0);
+  const [touchedFields, setTouchedFields] = useState<Partial<Record<keyof FormState, boolean>>>({});
+  const [stepSubmitAttempted, setStepSubmitAttempted] = useState(false);
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
 
   useEffect(() => setForm(loadDraft(DRAFT_KEY, initial)), []);
+
   useEffect(() => {
     if (submitted) return;
     const t = setTimeout(() => {
@@ -102,16 +156,48 @@ function PostJoining() {
     return () => clearTimeout(t);
   }, [form, submitted]);
 
-  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
+    setTouchedFields((t) => ({ ...t, [k]: true }));
+  };
 
-  const stepValid = useMemo(() => {
-    if (step === 0) return !!(form.employeeId && form.officialEmail && form.joiningDate);
-    if (step === 3) return form.nda && form.companyPolicy && form.leavePolicy;
-    return true;
-  }, [step, form]);
+  const stepErrors = useMemo(() => validateStepFields(step, form), [step, form]);
+  const stepValid = Object.keys(stepErrors).length === 0;
+
+  // Only show error if user touched the field OR tried to advance
+  const visibleErrors: FormErrors = {};
+  for (const key of Object.keys(stepErrors) as (keyof FormState)[]) {
+    if (stepSubmitAttempted || touchedFields[key]) {
+      visibleErrors[key] = stepErrors[key as keyof FormErrors];
+    }
+  }
+
+  const next = () => {
+    setStepSubmitAttempted(true);
+    if (!stepValid) return;
+    setStepSubmitAttempted(false);
+    setTouchedFields({});
+    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+  };
+
+  const back = () => {
+    setStepSubmitAttempted(false);
+    setTouchedFields({});
+    setStep((s) => Math.max(0, s - 1));
+  };
+
+  const handleJump = (target: number) => {
+    if (target < step) {
+      setStepSubmitAttempted(false);
+      setTouchedFields({});
+      setStep(target);
+    }
+  };
 
   const submit = async () => {
+    setStepSubmitAttempted(true);
+    if (!stepValid) return;
+
     if (!user) {
       navigate({ to: "/login" });
       return;
@@ -139,11 +225,10 @@ function PostJoining() {
 
       if (error) throw new Error(error.message);
 
-      // ✅ Send confirmation email
       await supabase.functions.invoke("send-email", {
         body: {
           type: "confirmation",
-          to: form.officialEmail,        // post-joining uses officialEmail
+          to: form.officialEmail,
           name: form.employeeId,
           referenceId: data.referenceId,
         },
@@ -185,165 +270,21 @@ function PostJoining() {
       </div>
 
       <div className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-7">
-        <Stepper steps={STEPS} current={step} onJump={setStep} />
+        <Stepper steps={STEPS} current={step} onJump={handleJump} />
 
         <div className="mt-7 space-y-6">
-          {step === 0 && (
-            <div className="space-y-5">
-              <SectionTitle title="Employment Details" />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Employee ID" required hint="Auto-generated">
-                  <TextInput value={form.employeeId} readOnly className="font-mono" />
-                </Field>
-                <Field label="Official email" required>
-                  <TextInput
-                    type="email"
-                    value={form.officialEmail}
-                    onChange={(e) => set("officialEmail", e.target.value)}
-                  />
-                </Field>
-                <Field label="Reporting manager">
-                  <TextInput
-                    value={form.reportingManager}
-                    onChange={(e) => set("reportingManager", e.target.value)}
-                  />
-                </Field>
-                <Field label="Work location">
-                  <TextInput
-                    value={form.workLocation}
-                    onChange={(e) => set("workLocation", e.target.value)}
-                  />
-                </Field>
-                <Field label="Employment type">
-                  <Select
-                    value={form.employmentType}
-                    onChange={(e) => set("employmentType", e.target.value)}
-                  >
-                    <option value="">Select</option>
-                    {["Full-time", "Part-time", "Contract", "Intern"].map((x) => (
-                      <option key={x}>{x}</option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Shift timing">
-                  <TextInput
-                    value={form.shift}
-                    onChange={(e) => set("shift", e.target.value)}
-                    placeholder="10:00 – 19:00"
-                  />
-                </Field>
-                <Field label="Date of joining" required>
-                  <TextInput
-                    type="date"
-                    value={form.joiningDate}
-                    onChange={(e) => set("joiningDate", e.target.value)}
-                  />
-                </Field>
-              </div>
-            </div>
-          )}
-
-          {step === 1 && (
-            <div className="space-y-5">
-              <SectionTitle title="HR & Payroll" />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="UAN number">
-                  <TextInput value={form.uan} onChange={(e) => set("uan", e.target.value)} />
-                </Field>
-                <Field label="PF number">
-                  <TextInput value={form.pf} onChange={(e) => set("pf", e.target.value)} />
-                </Field>
-                <Field label="ESIC number">
-                  <TextInput value={form.esic} onChange={(e) => set("esic", e.target.value)} />
-                </Field>
-                <Field label="CTC (per annum)">
-                  <TextInput
-                    value={form.ctc}
-                    onChange={(e) => set("ctc", e.target.value)}
-                    placeholder="₹ 12,00,000"
-                  />
-                </Field>
-                <Field label="Salary structure" className="sm:col-span-2">
-                  <TextInput
-                    value={form.salaryStructure}
-                    onChange={(e) => set("salaryStructure", e.target.value)}
-                    placeholder="Basic + HRA + Special"
-                  />
-                </Field>
-                <Field label="Insurance details" className="sm:col-span-2">
-                  <TextInput
-                    value={form.insurance}
-                    onChange={(e) => set("insurance", e.target.value)}
-                  />
-                </Field>
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-5">
-              <SectionTitle title="Asset Allocation" />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Laptop assigned">
-                  <TextInput
-                    value={form.laptop}
-                    onChange={(e) => set("laptop", e.target.value)}
-                    placeholder="MacBook Pro 14, 2024"
-                  />
-                </Field>
-                <Field label="System ID">
-                  <TextInput
-                    value={form.systemId}
-                    onChange={(e) => set("systemId", e.target.value)}
-                  />
-                </Field>
-                <Field label="Software access" className="sm:col-span-2">
-                  <TextInput
-                    value={form.softwareAccess}
-                    onChange={(e) => set("softwareAccess", e.target.value)}
-                    placeholder="Slack, Linear, GitHub"
-                  />
-                </Field>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Toggle
-                  label="ID card issued"
-                  checked={form.idCard}
-                  onChange={(v) => set("idCard", v)}
-                />
-                <Toggle
-                  label="Email access provided"
-                  checked={form.emailAccess}
-                  onChange={(v) => set("emailAccess", v)}
-                />
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-4">
-              <SectionTitle
-                title="Employee Agreement"
-                description="Please acknowledge each policy."
-              />
-              <Toggle
-                label="I accept the Non-Disclosure Agreement (NDA)"
-                checked={form.nda}
-                onChange={(v) => set("nda", v)}
-              />
-              <Toggle
-                label="I accept the Company Policy"
-                checked={form.companyPolicy}
-                onChange={(v) => set("companyPolicy", v)}
-              />
-              <Toggle
-                label="I accept the Leave Policy"
-                checked={form.leavePolicy}
-                onChange={(v) => set("leavePolicy", v)}
-              />
-            </div>
-          )}
+          {step === 0 && <EmploymentStep form={form} set={set} errors={visibleErrors} />}
+          {step === 1 && <PayrollStep form={form} set={set} errors={visibleErrors} />}
+          {step === 2 && <AssetsStep form={form} set={set} errors={visibleErrors} />}
+          {step === 3 && <AgreementStep form={form} set={set} errors={visibleErrors} />}
         </div>
+
+        {/* Step-level banner when user tries to advance with errors */}
+        {stepSubmitAttempted && !stepValid && (
+          <p className="mt-5 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            Please fill in all required fields before continuing.
+          </p>
+        )}
 
         {submitError && (
           <p className="mt-5 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -359,7 +300,7 @@ function PostJoining() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              onClick={back}
               disabled={step === 0}
               className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-medium transition-colors hover:bg-secondary disabled:opacity-40"
             >
@@ -368,9 +309,8 @@ function PostJoining() {
             {step < STEPS.length - 1 ? (
               <button
                 type="button"
-                onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-                disabled={!stepValid}
-                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                onClick={next}
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Continue <ArrowRight className="h-4 w-4" />
               </button>
@@ -378,7 +318,7 @@ function PostJoining() {
               <button
                 type="button"
                 onClick={submit}
-                disabled={!stepValid || submitting}
+                disabled={submitting}
                 className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit form"}
@@ -391,30 +331,252 @@ function PostJoining() {
   );
 }
 
+// ─── Step prop types ──────────────────────────────────────────────────────────
+
+type StepProps = {
+  form: FormState;
+  set: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
+  errors: FormErrors;
+};
+
+// ─── Steps ────────────────────────────────────────────────────────────────────
+
+function EmploymentStep({ form, set, errors }: StepProps) {
+  return (
+    <div className="space-y-5">
+      <SectionTitle title="Employment Details" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Employee ID" required hint="Auto-generated">
+          <TextInput value={form.employeeId} readOnly className="font-mono" />
+        </Field>
+        <Field label="Official email" required hint={errors.officialEmail}>
+          <TextInput
+            type="email"
+            value={form.officialEmail}
+            onChange={(e) => set("officialEmail", e.target.value)}
+            aria-invalid={!!errors.officialEmail}
+          />
+        </Field>
+        <Field label="Reporting manager" required hint={errors.reportingManager}>
+          <TextInput
+            value={form.reportingManager}
+            onChange={(e) => set("reportingManager", e.target.value)}
+            aria-invalid={!!errors.reportingManager}
+          />
+        </Field>
+        <Field label="Work location" required hint={errors.workLocation}>
+          <TextInput
+            value={form.workLocation}
+            onChange={(e) => set("workLocation", e.target.value)}
+            aria-invalid={!!errors.workLocation}
+          />
+        </Field>
+        <Field label="Employment type" required hint={errors.employmentType}>
+          <Select
+            value={form.employmentType}
+            onChange={(e) => set("employmentType", e.target.value)}
+            aria-invalid={!!errors.employmentType}
+          >
+            <option value="">Select</option>
+            {["Full-time", "Part-time", "Contract", "Intern"].map((x) => (
+              <option key={x}>{x}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Shift timing" required hint={errors.shift}>
+          <TextInput
+            value={form.shift}
+            onChange={(e) => set("shift", e.target.value)}
+            placeholder="10:00 – 19:00"
+          />
+        </Field>
+        <Field label="Date of joining" required hint={errors.joiningDate}>
+          <TextInput
+            type="date"
+            value={form.joiningDate}
+            onChange={(e) => set("joiningDate", e.target.value)}
+            aria-invalid={!!errors.joiningDate}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+function PayrollStep({ form, set, errors }: StepProps) {
+  return (
+    <div className="space-y-5">
+      <SectionTitle title="HR & Payroll" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="UAN number" required hint={errors.uan}>
+          <TextInput
+            value={form.uan}
+            onChange={(e) => set("uan", e.target.value)}
+            aria-invalid={!!errors.uan}
+          />
+        </Field>
+        <Field label="PF number" required hint={errors.pf}>
+          <TextInput
+            value={form.pf}
+            onChange={(e) => set("pf", e.target.value)}
+            aria-invalid={!!errors.pf}
+          />
+        </Field>
+        <Field label="ESIC number" required hint={errors.esic}>
+          <TextInput
+            value={form.esic}
+            onChange={(e) => set("esic", e.target.value)}
+            aria-invalid={!!errors.esic}
+          />
+        </Field>
+        <Field label="CTC (per annum)" required hint={errors.ctc}>
+          <TextInput
+            value={form.ctc}
+            onChange={(e) => set("ctc", e.target.value)}
+            placeholder="₹ 12,00,000"
+            aria-invalid={!!errors.ctc}
+          />
+        </Field>
+        <Field label="Salary structure" required className="sm:col-span-2" hint={errors.salaryStructure}>
+          <TextInput
+            value={form.salaryStructure}
+            onChange={(e) => set("salaryStructure", e.target.value)}
+            placeholder="Basic + HRA + Special"
+            aria-invalid={!!errors.salaryStructure}
+          />
+        </Field>
+        <Field label="Insurance details" required className="sm:col-span-2" hint={errors.insurance}>
+          <TextInput
+            value={form.insurance}
+            onChange={(e) => set("insurance", e.target.value)}
+            aria-invalid={!!errors.insurance}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+function AssetsStep({ form, set, errors }: StepProps) {
+  return (
+    <div className="space-y-5">
+      <SectionTitle title="Asset Allocation" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Laptop assigned" required hint={errors.laptop}>
+          <TextInput
+            value={form.laptop}
+            onChange={(e) => set("laptop", e.target.value)}
+            placeholder="MacBook Pro 14, 2024"
+            aria-invalid={!!errors.laptop}
+          />
+        </Field>
+        <Field label="System ID" required hint={errors.systemId}>
+          <TextInput
+            value={form.systemId}
+            onChange={(e) => set("systemId", e.target.value)}
+            aria-invalid={!!errors.systemId}
+          />
+        </Field>
+        <Field label="Software access" required className="sm:col-span-2" hint={errors.softwareAccess}>
+          <TextInput
+            value={form.softwareAccess}
+            onChange={(e) => set("softwareAccess", e.target.value)}
+            placeholder="Slack, Linear, GitHub"
+            aria-invalid={!!errors.softwareAccess}
+          />
+        </Field>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Toggle
+          label="ID card issued"
+          checked={form.idCard}
+          onChange={(v) => set("idCard", v)}
+          error={errors.idCard}
+        />
+        <Toggle
+          label="Email access provided"
+          checked={form.emailAccess}
+          onChange={(v) => set("emailAccess", v)}
+          error={errors.emailAccess}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AgreementStep({ form, set, errors }: StepProps) {
+  return (
+    <div className="space-y-4">
+      <SectionTitle
+        title="Employee Agreement"
+        description="All three policies must be accepted to submit."
+      />
+      <div className="space-y-1">
+        <Toggle
+          label="I accept the Non-Disclosure Agreement (NDA)"
+          checked={form.nda}
+          onChange={(v) => set("nda", v)}
+          error={errors.nda}
+        />
+      </div>
+      <div className="space-y-1">
+        <Toggle
+          label="I accept the Company Policy"
+          checked={form.companyPolicy}
+          onChange={(v) => set("companyPolicy", v)}
+          error={errors.companyPolicy}
+        />
+      </div>
+      <div className="space-y-1">
+        <Toggle
+          label="I accept the Leave Policy"
+          checked={form.leavePolicy}
+          onChange={(v) => set("leavePolicy", v)}
+          error={errors.leavePolicy}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Toggle ───────────────────────────────────────────────────────────────────
+
 function Toggle({
   label,
   checked,
   onChange,
+  error,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  error?: string;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
-      <span className="text-foreground/90">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 rounded-full transition-colors ${checked ? "bg-primary" : "bg-muted-foreground/30"}`}
+    <div className="space-y-1">
+      <label
+        className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm transition-colors ${
+          error ? "border-destructive bg-destructive/5" : "border-border bg-muted/30"
+        }`}
       >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-card shadow-soft transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"
+        <span className="text-foreground/90">{label}</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          onClick={() => onChange(!checked)}
+          className={`relative h-6 w-11 rounded-full transition-colors ${
+            checked ? "bg-primary" : "bg-muted-foreground/30"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 h-5 w-5 rounded-full bg-card shadow-soft transition-transform ${
+              checked ? "translate-x-5" : "translate-x-0.5"
             }`}
-        />
-      </button>
-    </label>
+          />
+        </button>
+      </label>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
   );
 }
