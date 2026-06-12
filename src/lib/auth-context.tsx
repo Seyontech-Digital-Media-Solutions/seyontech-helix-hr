@@ -1,3 +1,4 @@
+'use client'
 import type { AuthChangeEvent } from "@supabase/supabase-js";
 import {
   createContext,
@@ -84,9 +85,12 @@ const signOut = async () => {
   } finally {
     setSession(null);
     setProfile(null);
-    setTimeout(() => {
-      window.location.href = "/login";
-    }, 100);
+    // ✅ Guard against SSR
+    if (typeof window !== "undefined") {
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 100);
+    }
   }
 };
 
