@@ -10,16 +10,4 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
-  vite: {
-    ssr: {
-      noExternal: [
-        "@supabase/supabase-js",
-        "@supabase/auth-js",
-        "@supabase/realtime-js",
-        "@supabase/storage-js",
-        "@supabase/postgrest-js",
-        "tslib",
-      ],
-    },
-  },
 });
