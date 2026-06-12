@@ -11,13 +11,8 @@ import {
 
 import appCss from "../styles.css?url";
 import { SiteHeader } from "@/components/site-header";
-import { lazy, Suspense } from "react";
-
-// ✅ Dynamically import AuthProvider so it never runs on the server
-const AuthProvider = lazy(() =>
-  import("@/lib/auth-context").then((m) => ({ default: m.AuthProvider }))
-);
-
+import { AuthProvider } from "@/lib/auth-context";
+import { ClientOnly } from "@/lib/client-only";
 
 function NotFoundComponent() {
   return (
@@ -157,19 +152,20 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Suspense fallback={null}>
+      <ClientOnly
+        fallback={
+          <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">
+            Loading...
+          </div>
+        }
+      >
         <AuthProvider>
           {!hideHeader && <SiteHeader />}
           <main className={hideHeader ? "min-h-screen" : "min-h-[calc(100vh-4rem)]"}>
             <Outlet />
           </main>
         </AuthProvider>
-      </Suspense>
+      </ClientOnly>
     </QueryClientProvider>
   );
 }
-
-
-
-
-

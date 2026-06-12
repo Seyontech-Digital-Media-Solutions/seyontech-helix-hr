@@ -1,4 +1,3 @@
-'use client'
 import type { AuthChangeEvent } from "@supabase/supabase-js";
 import {
   createContext,
