@@ -84,12 +84,9 @@ const signOut = async () => {
   } finally {
     setSession(null);
     setProfile(null);
-    // ✅ Guard against SSR
-    if (typeof window !== "undefined") {
-      setTimeout(() => {
-        window.location.href = "/login";
-      }, 100);
-    }
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 100);
   }
 };
 
