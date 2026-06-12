@@ -21,14 +21,55 @@ export const isSupabaseConfigured =
 export const supabaseConfigMessage =
   "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.";
 
-// ✅ Safe for SSR — disables localStorage on server, uses in-memory storage instead
-const isBrowser = typeof window !== "undefined";
+// ✅ Lazy singleton — createClient is NEVER called on the server
+let _supabase: ReturnType<typeof createClient> | null = null;
 
-export const supabase = createClient(supabaseUrl ?? "", supabaseKey ?? "", {
-  auth: {
-    storage: isBrowser ? window.localStorage : undefined,
-    persistSession: isBrowser,
-    detectSessionInUrl: isBrowser,
+function getSupabaseClient() {
+  // Server: return a no-op stub so imports don't crash
+  if (typeof window === "undefined") {
+    return {
+      auth: {
+        getSession: async () => ({ data: { session: null }, error: null }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+        signOut: async () => {},
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null, error: null }),
+            single: async () => ({ data: null, error: null }),
+          }),
+        }),
+        insert: () => ({
+          select: () => ({
+            single: async () => ({ data: null, error: null }),
+          }),
+        }),
+      }),
+      functions: {
+        invoke: async () => ({ data: null, error: null }),
+      },
+    } as any;
+  }
+
+  // Browser: create once and reuse
+  if (!_supabase) {
+    _supabase = createClient(supabaseUrl ?? "", supabaseKey ?? "", {
+      auth: {
+        storage: window.localStorage,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    });
+  }
+
+  return _supabase;
+}
+
+// ✅ Export as a proxy — all .auth, .from, .functions calls go through getSupabaseClient()
+export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_target, prop) {
+    return getSupabaseClient()[prop as string];
   },
 });
 
@@ -46,7 +87,7 @@ export interface Profile {
 }
 
 export async function getMyProfile(): Promise<Profile | null> {
-  if (!isBrowser) return null; // ✅ Skip on server entirely
+  if (typeof window === "undefined") return null;
 
   const { data: sessionData } = await supabase.auth.getSession();
   const userId = sessionData.session?.user?.id;
