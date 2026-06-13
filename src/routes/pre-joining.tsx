@@ -319,7 +319,7 @@ function PersonalStep({ form, set }: StepProps) {
             <option>Prefer not to say</option>
           </Select>
         </Field>
-        <Field label="Blood group">
+        <Field label="Blood group" required>
           <Select value={form.bloodGroup} onChange={(e) => set("bloodGroup", e.target.value)}>
             <option value="">Select</option>
             {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => (
@@ -335,7 +335,7 @@ function PersonalStep({ form, set }: StepProps) {
             placeholder="+91 98765 43210"
           />
         </Field>
-        <Field label="Alternate number">
+        <Field label="Alternate number" required>
           <TextInput
             type="tel"
             value={form.altMobile}
@@ -350,25 +350,25 @@ function PersonalStep({ form, set }: StepProps) {
             placeholder="jane@example.com"
           />
         </Field>
-        <Field label="Current address" className="sm:col-span-2">
+        <Field label="Current address" required className="sm:col-span-2">
           <TextArea
             value={form.currentAddress}
             onChange={(e) => set("currentAddress", e.target.value)}
           />
         </Field>
-        <Field label="Permanent address" className="sm:col-span-2">
+        <Field label="Permanent address" required className="sm:col-span-2">
           <TextArea
             value={form.permanentAddress}
             onChange={(e) => set("permanentAddress", e.target.value)}
           />
         </Field>
-        <Field label="Emergency contact person">
+        <Field label="Emergency contact person" required>
           <TextInput
             value={form.emergencyName}
             onChange={(e) => set("emergencyName", e.target.value)}
           />
         </Field>
-        <Field label="Emergency contact number">
+        <Field label="Emergency contact number" required>
           <TextInput
             type="tel"
             value={form.emergencyNumber}
@@ -419,27 +419,27 @@ function ProfessionalStep({ form, set }: StepProps) {
             onChange={(e) => set("joinDate", e.target.value)}
           />
         </Field>
-        <Field label="Total experience">
+        <Field label="Total experience" required>
           <TextInput
             value={form.experience}
             onChange={(e) => set("experience", e.target.value)}
             placeholder="3 years"
           />
         </Field>
-        <Field label="Previous company" className="sm:col-span-2">
+        <Field label="Previous company " required className="sm:col-span-2">
           <TextInput
             value={form.prevCompany}
             onChange={(e) => set("prevCompany", e.target.value)}
           />
         </Field>
-        <Field label="Skills" hint="Comma separated" className="sm:col-span-2">
+        <Field label="Skills" hint="Comma separated" required className="sm:col-span-2">
           <TextInput
             value={form.skills}
             onChange={(e) => set("skills", e.target.value)}
             placeholder="TypeScript, React, PostgreSQL"
           />
         </Field>
-        <Field label="LinkedIn profile">
+        <Field label="LinkedIn profile" required>
           <TextInput
             type="url"
             value={form.linkedin}
@@ -447,7 +447,7 @@ function ProfessionalStep({ form, set }: StepProps) {
             placeholder="https://linkedin.com/in/..."
           />
         </Field>
-        <Field label="Portfolio / GitHub URL">
+        <Field label="Portfolio / GitHub URL" required>
           <TextInput
             type="url"
             value={form.portfolio}
@@ -529,7 +529,7 @@ function BankStep({ form, set }: StepProps) {
         <Field label="Bank name" required>
           <TextInput value={form.bankName} onChange={(e) => set("bankName", e.target.value)} />
         </Field>
-        <Field label="Account holder name">
+        <Field label="Account holder name" required>
           <TextInput
             value={form.accountHolder}
             onChange={(e) => set("accountHolder", e.target.value)}
@@ -547,7 +547,7 @@ function BankStep({ form, set }: StepProps) {
             onChange={(e) => set("ifsc", e.target.value.toUpperCase())}
           />
         </Field>
-        <Field label="Branch name" className="sm:col-span-2">
+        <Field label="Branch name" required className="sm:col-span-2">
           <TextInput value={form.branch} onChange={(e) => set("branch", e.target.value)} />
         </Field>
       </div>
