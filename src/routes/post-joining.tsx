@@ -202,19 +202,19 @@ function PostJoining() {
                     onChange={(e) => set("officialEmail", e.target.value)}
                   />
                 </Field>
-                <Field label="Reporting manager">
+                <Field label="Reporting manager" required>
                   <TextInput
                     value={form.reportingManager}
                     onChange={(e) => set("reportingManager", e.target.value)}
                   />
                 </Field>
-                <Field label="Work location">
+                <Field label="Work location" required>
                   <TextInput
                     value={form.workLocation}
                     onChange={(e) => set("workLocation", e.target.value)}
                   />
                 </Field>
-                <Field label="Employment type">
+                <Field label="Employment type" required>
                   <Select
                     value={form.employmentType}
                     onChange={(e) => set("employmentType", e.target.value)}
@@ -225,7 +225,7 @@ function PostJoining() {
                     ))}
                   </Select>
                 </Field>
-                <Field label="Shift timing">
+                <Field label="Shift timing" required>
                   <TextInput
                     value={form.shift}
                     onChange={(e) => set("shift", e.target.value)}
@@ -247,30 +247,30 @@ function PostJoining() {
             <div className="space-y-5">
               <SectionTitle title="HR & Payroll" />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="UAN number">
+                <Field label="UAN number" required>
                   <TextInput value={form.uan} onChange={(e) => set("uan", e.target.value)} />
                 </Field>
-                <Field label="PF number">
+                <Field label="PF number" required>
                   <TextInput value={form.pf} onChange={(e) => set("pf", e.target.value)} />
                 </Field>
-                <Field label="ESIC number">
+                <Field label="ESIC number" required>
                   <TextInput value={form.esic} onChange={(e) => set("esic", e.target.value)} />
                 </Field>
-                <Field label="CTC (per annum)">
+                <Field label="CTC (per annum)" required>
                   <TextInput
                     value={form.ctc}
                     onChange={(e) => set("ctc", e.target.value)}
                     placeholder="₹ 12,00,000"
                   />
                 </Field>
-                <Field label="Salary structure" className="sm:col-span-2">
+                <Field label="Salary structure" required className="sm:col-span-2">
                   <TextInput
                     value={form.salaryStructure}
                     onChange={(e) => set("salaryStructure", e.target.value)}
                     placeholder="Basic + HRA + Special"
                   />
                 </Field>
-                <Field label="Insurance details" className="sm:col-span-2">
+                <Field label="Insurance details" required className="sm:col-span-2">
                   <TextInput
                     value={form.insurance}
                     onChange={(e) => set("insurance", e.target.value)}
@@ -284,20 +284,20 @@ function PostJoining() {
             <div className="space-y-5">
               <SectionTitle title="Asset Allocation" />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Laptop assigned">
+                <Field label="Laptop assigned" required>
                   <TextInput
                     value={form.laptop}
                     onChange={(e) => set("laptop", e.target.value)}
                     placeholder="MacBook Pro 14, 2024"
                   />
                 </Field>
-                <Field label="System ID">
+                <Field label="System ID" required>
                   <TextInput
                     value={form.systemId}
                     onChange={(e) => set("systemId", e.target.value)}
                   />
                 </Field>
-                <Field label="Software access" className="sm:col-span-2">
+                <Field label="Software access" required className="sm:col-span-2">
                   <TextInput
                     value={form.softwareAccess}
                     onChange={(e) => set("softwareAccess", e.target.value)}
