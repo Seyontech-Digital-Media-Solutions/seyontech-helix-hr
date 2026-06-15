@@ -639,8 +639,23 @@ function Admin() {
       alert(`Could not save status: ${error.message}`);
       return;
     }
+    const emailType =
+      newStatus === "Approved" ? "approval-letter" :
+      newStatus === "Joined"   ? "joining-letter"  :
+      "status-update";
+
     supabase.functions.invoke("send-email", {
-      body: { type: "status-update", to: item.email, name: item.name, referenceId: item.id, status: dbStatus },
+      body: {
+        type: emailType,
+        to: item.email,
+        name: item.name,
+        referenceId: item.id,
+        status: dbStatus,
+        position: item.position,
+        department: item.department,
+        joinDate: (item.payload as any)?.joinDate ?? "",
+        address: (item.payload as any)?.currentAddress ?? "",
+      },
     }).catch(console.error);
   };
 
