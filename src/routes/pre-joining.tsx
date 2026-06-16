@@ -174,8 +174,8 @@ function validateStepFields(step: number, f: FormState): FormErrors {
     if (!f.filePan) errors.filePan = "PAN card is required.";
     if (!f.fileResume) errors.fileResume = "Resume / CV is required.";
     if (!f.filePhoto) errors.filePhoto = "Passport size photo is required.";
-    if (!f.fileEdu) errors.fileEdu = "Educational certificates are required.";
-    if (!f.fileExp) errors.fileExp = "Experience certificates are required.";
+    //if (!f.fileEdu) errors.fileEdu = "Educational certificates are required.";
+    //if (!f.fileExp) errors.fileExp = "Experience certificates are required.";
   }
 
   if (step === 3) {
@@ -511,13 +511,13 @@ function DocumentsStep({ form, set, errors }: StepProps) {
   const [uploading, setUploading] = useState<Partial<Record<keyof FormState, boolean>>>({});
   const [uploadErrors, setUploadErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
-  const files: Array<[keyof FormState, string]> = [
-    ["fileAadhaar", "Aadhaar card"],
-    ["filePan", "PAN card"],
-    ["fileResume", "Resume / CV"],
-    ["filePhoto", "Passport size photo"],
-    ["fileEdu", "Educational certificates"],
-    ["fileExp", "Experience certificates"],
+  const files: Array<[keyof FormState, string, boolean]> = [
+    ["fileAadhaar", "Aadhaar card", true],
+    ["filePan", "PAN card", true],
+    ["fileResume", "Resume / CV", true],
+    ["filePhoto", "Passport size photo", true],
+    ["fileEdu", "Educational certificates", false],
+    ["fileExp", "Experience certificates", false],
   ];
 
   const handleFile = async (key: keyof FormState, file: File | null) => {
@@ -539,13 +539,16 @@ function DocumentsStep({ form, set, errors }: StepProps) {
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Documents" description="Upload clear scans or photos. PDF or image formats accepted. All documents are mandatory." />
+      <SectionTitle
+        title="Documents"
+        description="Upload clear scans or photos. PDF or image formats accepted. Aadhaar, PAN, resume, and photo are mandatory. Educational and experience certificates are optional for freshers."
+      />
       <div className="grid gap-3 sm:grid-cols-2">
-        {files.map(([key, label]) => (
+        {files.map(([key, label, required]) => (
           <div key={key} className="space-y-1">
             <FileDrop
               label={label}
-              required
+              required={required}
               fileName={uploading[key] ? "Uploading…" : form[key] ? "✅ Uploaded" : ""}
               onChange={(file) => handleFile(key, file)}
             />
