@@ -24,6 +24,7 @@ export const Route = createFileRoute("/post-joining")({
 const DRAFT_KEY = "ho_postjoin_v1";
 
 interface FormState {
+  fullName: string;
   employeeId: string;
   officialEmail: string;
   reportingManager: string;
@@ -54,6 +55,7 @@ function autoEmpId() {
 }
 
 const initial: FormState = {
+  fullName: "",
   employeeId: autoEmpId(),
   officialEmail: "",
   reportingManager: "",
@@ -90,6 +92,7 @@ function validateStepFields(step: number, f: FormState): FormErrors {
   const errors: FormErrors = {};
 
   if (step === 0) {
+    if (!f.fullName.trim()) errors.fullName = "Full name is required.";
     if (!f.officialEmail.trim()) {
       errors.officialEmail = "Official email is required.";
     } else if (!EMAIL_RE.test(f.officialEmail.trim())) {
@@ -206,7 +209,7 @@ function PostJoining() {
         .insert({
           type: "POST_JOINING",
           referenceId: `POST-${Date.now()}`,
-          applicantName: form.employeeId,
+          applicantName: form.fullName,
           email: form.officialEmail,
           position: form.employmentType,
           department: form.workLocation,
@@ -223,7 +226,7 @@ function PostJoining() {
         body: {
           type: "confirmation",
           to: form.officialEmail,
-          name: form.employeeId,
+          name: form.fullName,
           referenceId: data.referenceId,
         },
       });
@@ -335,6 +338,14 @@ function EmploymentStep({ form, set, errors }: StepProps) {
     <div className="space-y-5">
       <SectionTitle title="Employment Details" />
       <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Full name" required error={errors.fullName} className="sm:col-span-2">
+  <TextInput
+    value={form.fullName}
+    onChange={(e) => set("fullName", e.target.value)}
+    placeholder="e.g. Arun Kumar"
+    aria-invalid={!!errors.fullName}
+  />
+</Field>
         <Field label="Employee ID" required hint="Auto-generated">
           <TextInput value={form.employeeId} readOnly className="font-mono" />
         </Field>
