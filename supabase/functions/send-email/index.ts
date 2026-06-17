@@ -49,18 +49,18 @@ async function generateLetterPDF(
   // Top-right blue parallelogram accent
   p.drawRectangle({
   x: 320,
-  y: height - 35,
+  y: height - 28,
   width: 275,
-  height: 35,
+  height: 28,
   color: navy,
 });
 
-for (let i = 0; i < 35; i++) {
+for (let i = 0; i < 28; i++) {
   p.drawRectangle({
     x: 320 + i,
-    y: height - 35,
+    y: height - 28,
     width: 1,
-    height: 35 - i,
+    height: 28 - i,
     color: rgb(1, 1, 1),
   });
 }
@@ -68,7 +68,7 @@ for (let i = 0; i < 35; i++) {
   // ── Real logo image (replaces text) ──────────────────────────────────────
  p.drawImage(logoImage, {
   x: 28,
-  y: height - 85,
+  y: height - 95,
   width: 200,
   height: 75,
 });
@@ -78,8 +78,8 @@ for (let i = 0; i < 35; i++) {
 
   // Thin divider line under logo area
 p.drawLine({
-  start: { x: 0, y: height - 90 },
-  end: { x: width, y: height - 90 },
+  start: { x: 0, y: height - 100 },
+  end: { x: width, y: height - 100 },
   thickness: 0.5,
   color: rgb(0.75, 0.75, 0.75),
 });
