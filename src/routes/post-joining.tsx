@@ -25,6 +25,7 @@ const DRAFT_KEY = "ho_postjoin_v1";
 
 interface FormState {
   fullName: string;
+  designation: string;
   employeeId: string;
   officialEmail: string;
   reportingManager: string;
@@ -57,6 +58,7 @@ function autoEmpId() {
 
 const initial: FormState = {
   fullName: "",
+  designation: "",
   employeeId: autoEmpId(),
   officialEmail: "",
   reportingManager: "",
@@ -95,6 +97,7 @@ function validateStepFields(step: number, f: FormState): FormErrors {
 
   if (step === 0) {
     if (!f.fullName.trim()) errors.fullName = "Full name is required.";
+    if (!f.designation.trim()) errors.designation = "Designation is required.";
     if (!f.officialEmail.trim()) {
       errors.officialEmail = "Official email is required.";
     } else if (!EMAIL_RE.test(f.officialEmail.trim())) {
@@ -195,53 +198,69 @@ function PostJoining() {
   };
 
   const submit = async () => {
-    setStepSubmitAttempted(true);
-    if (!stepValid) return;
+  setStepSubmitAttempted(true);
+  if (!stepValid) return;
 
-    if (!user) {
-      navigate({ to: "/login" });
-      return;
-    }
+  if (!user) {
+    navigate({ to: "/login" });
+    return;
+  }
 
-    setSubmitting(true);
-    setSubmitError("");
+  setSubmitting(true);
+  setSubmitError("");
 
-    try {
-      const { data, error } = await supabase
-        .from("Submission")
-        .insert({
-          type: "POST_JOINING",
-          referenceId: `POST-${Date.now()}`,
-          applicantName: form.fullName,
-          email: form.officialEmail,
-          position: form.employmentType,
-          department: form.department,
-          payload: form,
-          submittedById: user.id,
-          updatedAt: new Date().toISOString(),
-        })
-        .select("id, referenceId")
-        .single();
+  try {
+    const { data, error } = await supabase
+      .from("Submission")
+      .insert({
+        type: "POST_JOINING",
+        referenceId: `POST-${Date.now()}`,
+        applicantName: form.fullName,
+        email: form.officialEmail,
+        position: form.designation,     // ← fix: was form.employmentType
+        department: form.department,
+        payload: form,
+        submittedById: user.id,
+        updatedAt: new Date().toISOString(),
+      })
+      .select("id, referenceId")
+      .single();
 
-      if (error) throw new Error(error.message);
+    if (error) throw new Error(error.message);
 
-      await supabase.functions.invoke("send-email", {
-        body: {
-          type: "confirmation",
-          to: form.officialEmail,
-          name: form.fullName,
-          referenceId: data.referenceId,
-        },
-      });
+    // Confirmation email — simple submission received
+    await supabase.functions.invoke("send-email", {
+      body: {
+        type: "confirmation",
+        to: form.officialEmail,
+        name: form.fullName,
+        referenceId: data.referenceId,
+      },
+    });
 
-      clearDraft(DRAFT_KEY);
-      setSubmitted(data.referenceId);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Submission failed");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    // Joining letter PDF email — ← this was missing
+    await supabase.functions.invoke("send-email", {
+      body: {
+        type: "joining-letter",
+        to: form.officialEmail,
+        name: form.fullName,
+        referenceId: data.referenceId,
+        position: form.designation,
+        department: form.department,
+        joinDate: form.joiningDate,
+        address: form.workLocation,
+        stipend: form.ctc,
+      },
+    });
+
+    clearDraft(DRAFT_KEY);
+    setSubmitted(data.referenceId);
+  } catch (error) {
+    setSubmitError(error instanceof Error ? error.message : "Submission failed");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (submitted) {
     return (
@@ -347,6 +366,14 @@ function EmploymentStep({ form, set, errors }: StepProps) {
     onChange={(e) => set("fullName", e.target.value)}
     placeholder="e.g. Arun Kumar"
     aria-invalid={!!errors.fullName}
+  />
+</Field>
+<Field label="Designation" required error={errors.designation}>
+  <TextInput
+    value={form.designation}
+    onChange={(e) => set("designation", e.target.value)}
+    placeholder="e.g. Software Engineer"
+    aria-invalid={!!errors.designation}
   />
 </Field>
         <Field label="Employee ID" required hint="Auto-generated">

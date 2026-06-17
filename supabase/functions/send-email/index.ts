@@ -74,12 +74,12 @@ p.drawImage(logoImage, {
 });
 
 // Divider line matches logo bottom
-p.drawLine({
+/*p.drawLine({
   start: { x: 0, y: height - 90 },
   end: { x: width, y: height - 90 },
   thickness: 0.5,
   color: rgb(0.75, 0.75, 0.75),
-});
+});*/
 
   // Footer divider
   p.drawLine({
@@ -118,10 +118,10 @@ p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 
     day: "2-digit", month: "2-digit", year: "numeric",
   });
   const joinDateFormatted = data.joinDate
-    ? new Date(data.joinDate).toLocaleDateString("en-IN", {
-        day: "2-digit", month: "long", year: "numeric",
-      })
-    : "To be confirmed";
+  ? new Date(data.joinDate + "T00:00:00").toLocaleDateString("en-IN", {
+      day: "2-digit", month: "long", year: "numeric",
+    })
+  : "To be confirmed"
 
   // ════════════════════════════════════════════════════════════════════════════
   // APPROVAL LETTER — original structure + Documents Required section
