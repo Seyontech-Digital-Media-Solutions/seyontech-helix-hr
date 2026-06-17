@@ -45,19 +45,32 @@ async function generateLetterPDF(
   const drawPageFrame = (p: ReturnType<typeof doc.addPage>) => {
   const { width, height } = p.getSize();
 
-  // Top-right blue accent
-  p.drawRectangle({ x: width - 80, y: height - 30, width: 80, height: 30, color: navy });
+  
+  // Top-right blue parallelogram accent
+p.drawRectangle({ x: width - 160, y: height - 32, width: 175, height: 32, color: navy });
+
+// White triangle on left side to create skew effect
+p.drawRectangle({ x: width - 168, y: height - 32, width: 20, height: 32, color: rgb(1, 1, 1) });
+p.moveTo(width - 168, height - 32);
 
   // ── Real logo image (replaces text) ──────────────────────────────────────
-  p.drawImage(logoImage, {
-    x: 28,
-    y: height - 58,
-    width: 130,
-    height: 50,
-  });
+ p.drawImage(logoImage, {
+  x: 28,
+  y: height - 70,
+  width: 160,
+  height: 62,
+});
 
   // Blue divider under logo
   //p.drawRectangle({ x: 0, y: height - 62, width, height: 3, color: navy });
+
+  // Thin divider line under logo area
+p.drawLine({
+  start: { x: 0, y: height - 75 },
+  end: { x: width, y: height - 75 },
+  thickness: 0.5,
+  color: rgb(0.8, 0.8, 0.8),
+});
 
   // Footer divider
   p.drawLine({
@@ -71,7 +84,7 @@ p.drawText("+91 8610-499770", { x: L + 22, y: FOOTER_H - 35, font: fontReg, size
 p.drawText("Web:", { x: 320, y: FOOTER_H - 35, font: fontBold, size: 9, color: navy });
 p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 9, color: black });
   // Bottom bar
-  p.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: 22, color: navy });
+ // p.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: 22, color: navy });
 };
 
   drawPageFrame(page);

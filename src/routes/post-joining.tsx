@@ -29,6 +29,7 @@ interface FormState {
   officialEmail: string;
   reportingManager: string;
   workLocation: string;
+  department: string;
   employmentType: string;
   shift: string;
   joiningDate: string;
@@ -60,6 +61,7 @@ const initial: FormState = {
   officialEmail: "",
   reportingManager: "",
   workLocation: "",
+  department: "",
   employmentType: "",
   shift: "",
   joiningDate: "",
@@ -100,6 +102,7 @@ function validateStepFields(step: number, f: FormState): FormErrors {
     }
     if (!f.reportingManager.trim()) errors.reportingManager = "Reporting manager is required.";
     if (!f.workLocation.trim()) errors.workLocation = "Work location is required.";
+    if (!f.department.trim()) errors.department = "Department is required.";
     if (!f.employmentType) errors.employmentType = "Please select an employment type.";
     if (!f.shift.trim()) errors.shift = "Shift timing is required.";
     if (!f.joiningDate) errors.joiningDate = "Date of joining is required.";
@@ -212,7 +215,7 @@ function PostJoining() {
           applicantName: form.fullName,
           email: form.officialEmail,
           position: form.employmentType,
-          department: form.workLocation,
+          department: form.department,
           payload: form,
           submittedById: user.id,
           updatedAt: new Date().toISOString(),
@@ -371,6 +374,14 @@ function EmploymentStep({ form, set, errors }: StepProps) {
             aria-invalid={!!errors.workLocation}
           />
         </Field>
+        <Field label="Department" required error={errors.department}>
+  <TextInput
+    value={form.department}
+    onChange={(e) => set("department", e.target.value)}
+    placeholder="e.g. Engineering"
+    aria-invalid={!!errors.department}
+  />
+</Field>
         <Field label="Employment type" required error={errors.employmentType}>
           <Select
             value={form.employmentType}
