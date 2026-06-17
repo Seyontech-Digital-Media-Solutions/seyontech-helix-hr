@@ -47,18 +47,18 @@ async function generateLetterPDF(
 
   
   // Top-right blue parallelogram accent
-p.drawRectangle({ x: width - 160, y: height - 32, width: 175, height: 32, color: navy });
-
-// White triangle on left side to create skew effect
-p.drawRectangle({ x: width - 168, y: height - 32, width: 20, height: 32, color: rgb(1, 1, 1) });
-p.moveTo(width - 168, height - 32);
+p.drawSvgPath(`M 150 32 L 595 32 L 595 0 L 180 0 Z`, {
+  x: 0,
+  y: height - 32,
+  color: navy,
+});
 
   // ── Real logo image (replaces text) ──────────────────────────────────────
  p.drawImage(logoImage, {
   x: 28,
-  y: height - 70,
-  width: 160,
-  height: 62,
+  y: height - 85,
+  width: 200,
+  height: 75,
 });
 
   // Blue divider under logo
@@ -66,10 +66,10 @@ p.moveTo(width - 168, height - 32);
 
   // Thin divider line under logo area
 p.drawLine({
-  start: { x: 0, y: height - 75 },
-  end: { x: width, y: height - 75 },
+  start: { x: 0, y: height - 90 },
+  end: { x: width, y: height - 90 },
   thickness: 0.5,
-  color: rgb(0.8, 0.8, 0.8),
+  color: rgb(0.75, 0.75, 0.75),
 });
 
   // Footer divider
