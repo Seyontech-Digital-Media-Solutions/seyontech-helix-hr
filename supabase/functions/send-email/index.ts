@@ -47,7 +47,23 @@ async function generateLetterPDF(
 
   
   // Top-right blue parallelogram accent
-p.drawRectangle({ x: width - 80, y: height - 30, width: 80, height: 30, color: navy });
+  p.drawRectangle({
+  x: 320,
+  y: height - 35,
+  width: 275,
+  height: 35,
+  color: navy,
+});
+
+for (let i = 0; i < 35; i++) {
+  p.drawRectangle({
+    x: 320 + i,
+    y: height - 35,
+    width: 1,
+    height: 35 - i,
+    color: rgb(1, 1, 1),
+  });
+}
 
   // ── Real logo image (replaces text) ──────────────────────────────────────
  p.drawImage(logoImage, {
