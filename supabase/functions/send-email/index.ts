@@ -47,11 +47,7 @@ async function generateLetterPDF(
 
   
   // Top-right blue parallelogram accent
-p.drawSvgPath(`M 150 32 L 595 32 L 595 0 L 180 0 Z`, {
-  x: 0,
-  y: height - 32,
-  color: navy,
-});
+p.drawRectangle({ x: width - 80, y: height - 30, width: 80, height: 30, color: navy });
 
   // ── Real logo image (replaces text) ──────────────────────────────────────
  p.drawImage(logoImage, {
