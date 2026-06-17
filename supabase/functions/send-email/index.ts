@@ -66,20 +66,17 @@ for (let i = 0; i < 28; i++) {
 }
 
   // ── Real logo image (replaces text) ──────────────────────────────────────
- p.drawImage(logoImage, {
+p.drawImage(logoImage, {
   x: 28,
-  y: height - 95,
+  y: height - 85,  // ← moved up
   width: 200,
-  height: 75,
+  height: 90,      // ← increased height
 });
 
-  // Blue divider under logo
-  //p.drawRectangle({ x: 0, y: height - 62, width, height: 3, color: navy });
-
-  // Thin divider line under logo area
+// Divider line matches logo bottom
 p.drawLine({
-  start: { x: 0, y: height - 100 },
-  end: { x: width, y: height - 100 },
+  start: { x: 0, y: height - 90 },
+  end: { x: width, y: height - 90 },
   thickness: 0.5,
   color: rgb(0.75, 0.75, 0.75),
 });
