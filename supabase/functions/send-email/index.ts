@@ -69,8 +69,8 @@ for (let i = 0; i < 28; i++) {
 p.drawImage(logoImage, {
   x: 28,
   y: height - 85,  // ← moved up
-  width: 200,
-  height: 90,      // ← increased height
+  width: 280,
+  height: 99,      // ← increased height
 });
 
 // Divider line matches logo bottom
