@@ -69,7 +69,7 @@ for (let i = 0; i < 28; i++) {
 p.drawImage(logoImage, {
   x: 28,
   y: height - 85,  // ← moved up
-  width: 240,
+  width: 140,
   height: 99,      // ← increased height
 });
 
