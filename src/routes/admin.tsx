@@ -34,6 +34,12 @@ interface Submission {
   isSeeded?: boolean;
 }
 
+interface Draft {
+  user_id: string;
+  form_data: Record<string, unknown>;
+  updated_at: string;
+}
+
 const dbToUi: Record<DbStatus, Status> = {
   PENDING: "Pending",
   APPROVED: "Approved",
@@ -578,6 +584,7 @@ function Admin() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Status | "All">("All");
   const [drawerItem, setDrawerItem] = useState<Submission | null>(null);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
 
   useEffect(() => {
     const fetchSubmissions = async () => {
@@ -602,6 +609,11 @@ function Admin() {
       }));
 
       setItems(mapped.length > 0 ? mapped : SEED);
+      const { data: draftData } = await supabase
+  .from("drafts")
+  .select("user_id, form_data, updated_at")
+  .order("updated_at", { ascending: false });
+setDrafts(draftData ?? []);
     };
 
     fetchSubmissions();
@@ -621,7 +633,8 @@ function Admin() {
     pending: items.filter((i) => i.status === "Pending").length,
     approved: items.filter((i) => i.status === "Approved").length,
     joined: items.filter((i) => i.status === "Joined").length,
-  }), [items]);
+    drafts: drafts.length,
+  }), [items, drafts]);
 
   const updateStatus = async (id: string, newStatus: Status) => {
     setItems((arr) => arr.map((i) => (i.id === id ? { ...i, status: newStatus } : i)));
@@ -682,12 +695,13 @@ function Admin() {
         </button>
       </div>
 
-      <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Users2} label="Total submissions" value={counts.total} tone="primary" />
-        <StatCard icon={Clock} label="Pending review" value={counts.pending} tone="warning" />
-        <StatCard icon={CheckCircle2} label="Approved" value={counts.approved} tone="success" />
-        <StatCard icon={UserCheck} label="Joined" value={counts.joined} tone="accent" />
-      </div>
+      <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+  <StatCard icon={Users2} label="Total submissions" value={counts.total} tone="primary" />
+  <StatCard icon={Clock} label="Pending review" value={counts.pending} tone="warning" />
+  <StatCard icon={CheckCircle2} label="Approved" value={counts.approved} tone="success" />
+  <StatCard icon={UserCheck} label="Joined" value={counts.joined} tone="accent" />
+  <StatCard icon={FileText} label="In-progress drafts" value={counts.drafts} tone="warning" />
+</div>
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px]">
@@ -771,6 +785,8 @@ function Admin() {
         </div>
       </div>
 
+      <DraftsTable drafts={drafts} />
+
       {/* Drawer */}
       {drawerItem && (
         <SubmissionDrawer
@@ -829,5 +845,74 @@ function StatusMenu({ current, onChange }: { current: Status; onChange: (s: Stat
         <option key={s} value={s}>{s}</option>
       ))}
     </select>
+  );
+}
+
+// ─── Drafts Table ─────────────────────────────────────────────────────────────
+
+function DraftsTable({ drafts }: { drafts: Draft[] }) {
+  if (drafts.length === 0) return null;
+
+  return (
+    <div className="mt-10">
+      <div className="mb-3 flex items-center gap-2">
+        <FileText className="h-4 w-4 text-warning-foreground" />
+        <h2 className="text-sm font-semibold text-foreground">In-progress drafts</h2>
+        <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-semibold text-warning-foreground">
+          {drafts.length}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          — candidates who started but haven't submitted yet
+        </span>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-warning/30 bg-card shadow-soft">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-warning/10 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 font-medium">Candidate</th>
+                <th className="px-4 py-3 font-medium">Position</th>
+                <th className="px-4 py-3 font-medium">Department</th>
+                <th className="px-4 py-3 font-medium">Fields filled</th>
+                <th className="px-4 py-3 font-medium">Last saved</th>
+              </tr>
+            </thead>
+            <tbody>
+              {drafts.map((d, idx) => {
+                const fd = d.form_data ?? {};
+                const filled = Object.values(fd).filter(v => v !== "" && v !== null && v !== undefined).length;
+                const total = Object.keys(fd).length;
+                const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+                return (
+                  <tr key={d.user_id} className={`transition-colors hover:bg-muted/30 ${idx !== 0 ? "border-t border-border" : ""}`}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-foreground">{String(fd.fullName || "—")}</div>
+                      <div className="text-xs text-muted-foreground">{String(fd.email || d.user_id)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-foreground">{String(fd.position || "—")}</td>
+                    <td className="px-4 py-3 text-foreground">{String(fd.department || "—")}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-24 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full bg-warning-foreground/70 transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs text-muted-foreground">{filled}/{total}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {new Date(d.updated_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                      {" "}
+                      <span className="text-muted-foreground/50">
+                        {new Date(d.updated_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }
