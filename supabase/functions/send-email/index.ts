@@ -3,7 +3,7 @@ import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const FRONTEND_URL = Deno.env.get("FRONTEND_URL") ?? "http://localhost:8080";
-const FROM_EMAIL = "Helix HR <onboarding@resend.dev>";
+const FROM_EMAIL = "Helix HR <no-reply@helixhr.seyontech.in>";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
