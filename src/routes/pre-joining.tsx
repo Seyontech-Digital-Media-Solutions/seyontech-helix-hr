@@ -157,16 +157,7 @@ function validateStepFields(step: number, f: FormState): FormErrors {
     if (!f.experience.trim()) errors.experience = "Total experience is required.";
     if (!f.prevCompany.trim()) errors.prevCompany = "Previous company is required.";
     if (!f.skills.trim()) errors.skills = "Skills are required.";
-    if (!f.linkedin.trim()) {
-      errors.linkedin = "LinkedIn profile is required.";
-    } else if (!URL_RE.test(f.linkedin.trim())) {
-      errors.linkedin = "Enter a valid URL starting with https://";
-    }
-    if (!f.portfolio.trim()) {
-      errors.portfolio = "Portfolio / GitHub URL is required.";
-    } else if (!URL_RE.test(f.portfolio.trim())) {
-      errors.portfolio = "Enter a valid URL starting with https://";
-    }
+    // LinkedIn and Portfolio/GitHub URL are optional — no validation.
   }
 
   if (step === 2) {
@@ -174,24 +165,12 @@ function validateStepFields(step: number, f: FormState): FormErrors {
     if (!f.filePan) errors.filePan = "PAN card is required.";
     if (!f.fileResume) errors.fileResume = "Resume / CV is required.";
     if (!f.filePhoto) errors.filePhoto = "Passport size photo is required.";
-    //if (!f.fileEdu) errors.fileEdu = "Educational certificates are required.";
+    if (!f.fileEdu) errors.fileEdu = "Educational certificates are required.";
     //if (!f.fileExp) errors.fileExp = "Experience certificates are required.";
   }
 
   if (step === 3) {
-    if (!f.bankName.trim()) errors.bankName = "Bank name is required.";
-    if (!f.accountHolder.trim()) errors.accountHolder = "Account holder name is required.";
-    if (!f.accountNumber.trim()) {
-      errors.accountNumber = "Account number is required.";
-    } else if (!/^\d{9,18}$/.test(f.accountNumber.trim())) {
-      errors.accountNumber = "Enter a valid account number (9–18 digits).";
-    }
-    if (!f.ifsc.trim()) {
-      errors.ifsc = "IFSC code is required.";
-    } else if (!IFSC_RE.test(f.ifsc.trim().toUpperCase())) {
-      errors.ifsc = "Enter a valid IFSC code (e.g. SBIN0001234).";
-    }
-    if (!f.branch.trim()) errors.branch = "Branch name is required.";
+    // No validation — Banking step is fully optional.
   }
 
   if (step === 4) {
@@ -495,10 +474,10 @@ function ProfessionalStep({ form, set, errors }: StepProps) {
         <Field label="Skills" hint="Comma separated" required className="sm:col-span-2" error={errors.skills}>
           <TextInput value={form.skills} onChange={(e) => set("skills", e.target.value)} placeholder="TypeScript, React, PostgreSQL" aria-invalid={!!errors.skills} />
         </Field>
-        <Field label="LinkedIn profile" required error={errors.linkedin}>
+        <Field label="LinkedIn profile" error={errors.linkedin}>
           <TextInput type="url" value={form.linkedin} onChange={(e) => set("linkedin", e.target.value)} placeholder="https://linkedin.com/in/..." aria-invalid={!!errors.linkedin} />
         </Field>
-        <Field label="Portfolio / GitHub URL" required error={errors.portfolio}>
+        <Field label="Portfolio / GitHub URL" error={errors.portfolio}>
           <TextInput type="url" value={form.portfolio} onChange={(e) => set("portfolio", e.target.value)} placeholder="https://github.com/..." aria-invalid={!!errors.portfolio} />
         </Field>
       </div>
@@ -516,12 +495,35 @@ function DocumentsStep({ form, set, errors }: StepProps) {
     ["filePan", "PAN card", true],
     ["fileResume", "Resume / CV", true],
     ["filePhoto", "Passport size photo", true],
-    ["fileEdu", "Educational certificates", false],
+    ["fileEdu", "Educational certificates", true],
     ["fileExp", "Experience certificates", false],
   ];
 
+  const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+  const ALLOWED_EXT = /\.(pdf|jpe?g|png)$/i;
+  const MAX_SIZE_MB = 5;
+
   const handleFile = async (key: keyof FormState, file: File | null) => {
     if (!file || !user) return;
+
+    if (key === "fileEdu") {
+      const validType = ALLOWED_TYPES.includes(file.type) || ALLOWED_EXT.test(file.name);
+      if (!validType) {
+        setUploadErrors((e) => ({
+          ...e,
+          [key]: "Only PDF, JPG, or PNG files are allowed.",
+        }));
+        return;
+      }
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+        setUploadErrors((e) => ({
+          ...e,
+          [key]: `File must be smaller than ${MAX_SIZE_MB}MB.`,
+        }));
+        return;
+      }
+    }
+
     setUploading((u) => ({ ...u, [key]: true }));
     setUploadErrors((e) => ({ ...e, [key]: undefined }));
     try {
@@ -541,7 +543,7 @@ function DocumentsStep({ form, set, errors }: StepProps) {
     <div className="space-y-5">
       <SectionTitle
         title="Documents"
-        description="Upload clear scans or photos. PDF or image formats accepted. Aadhaar, PAN, resume, and photo are mandatory. Educational and experience certificates are optional for freshers."
+        description="Upload clear scans or photos. PDF, JPG, or PNG only, max 5MB. Aadhaar, PAN, resume, photo, and educational certificates are mandatory. Experience certificates are optional for freshers."
       />
       <div className="grid gap-3 sm:grid-cols-2">
         {files.map(([key, label, required]) => (
@@ -566,21 +568,21 @@ function DocumentsStep({ form, set, errors }: StepProps) {
 function BankStep({ form, set, errors }: StepProps) {
   return (
     <div className="space-y-5">
-      <SectionTitle title="Bank Details" description="For salary credit." />
+      <SectionTitle title="Bank Details" description="For salary credit. These details are optional and can be added later." />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Bank name" required error={errors.bankName}>
+        <Field label="Bank name" error={errors.bankName}>
           <TextInput value={form.bankName} onChange={(e) => set("bankName", e.target.value)} aria-invalid={!!errors.bankName} />
         </Field>
-        <Field label="Account holder name" required error={errors.accountHolder}>
+        <Field label="Account holder name" error={errors.accountHolder}>
           <TextInput value={form.accountHolder} onChange={(e) => set("accountHolder", e.target.value)} aria-invalid={!!errors.accountHolder} />
         </Field>
-        <Field label="Account number" required error={errors.accountNumber}>
+        <Field label="Account number" error={errors.accountNumber}>
           <TextInput value={form.accountNumber} onChange={(e) => set("accountNumber", e.target.value)} aria-invalid={!!errors.accountNumber} />
         </Field>
-        <Field label="IFSC code" required error={errors.ifsc}>
+        <Field label="IFSC code" error={errors.ifsc}>
           <TextInput value={form.ifsc} onChange={(e) => set("ifsc", e.target.value.toUpperCase())} placeholder="SBIN0001234" aria-invalid={!!errors.ifsc} />
         </Field>
-        <Field label="Branch name" required className="sm:col-span-2" error={errors.branch}>
+        <Field label="Branch name" className="sm:col-span-2" error={errors.branch}>
           <TextInput value={form.branch} onChange={(e) => set("branch", e.target.value)} aria-invalid={!!errors.branch} />
         </Field>
       </div>
