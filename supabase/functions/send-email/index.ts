@@ -5,6 +5,15 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const FRONTEND_URL = Deno.env.get("FRONTEND_URL") ?? "http://localhost:8080";
 const FROM_EMAIL = "Helix HR <no-reply@helixhr.seyontech.in>";
 
+// ── Admin notification config ──────────────────────────────────────────────
+// Set ADMIN_EMAIL as a Supabase secret. Comma-separate multiple addresses,
+// e.g. "hr@seyontech.in,sathish@seyontech.in"
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
+const ADMIN_RECIPIENTS = ADMIN_EMAIL.split(",").map((e) => e.trim()).filter(Boolean);
+// Where admins go to review/act on a submission. Defaults to the same status
+// page; point this at your real admin dashboard route if you have one.
+const ADMIN_DASHBOARD_URL = Deno.env.get("ADMIN_DASHBOARD_URL") ?? `${FRONTEND_URL}/admin`;
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -73,14 +82,6 @@ p.drawImage(logoImage, {
   height: 99,      // ← increased height
 });
 
-// Divider line matches logo bottom
-/*p.drawLine({
-  start: { x: 0, y: height - 90 },
-  end: { x: width, y: height - 90 },
-  thickness: 0.5,
-  color: rgb(0.75, 0.75, 0.75),
-});*/
-
   // Footer divider
   p.drawLine({
     start: { x: L, y: FOOTER_H - 10 }, end: { x: width - L, y: FOOTER_H - 10 },
@@ -92,8 +93,6 @@ p.drawText("+91 8610-499770", { x: L + 22, y: FOOTER_H - 35, font: fontReg, size
 // Website
 p.drawText("Web:", { x: 320, y: FOOTER_H - 35, font: fontBold, size: 9, color: navy });
 p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 9, color: black });
-  // Bottom bar
- // p.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: 22, color: navy });
 };
 
   drawPageFrame(page);
@@ -124,7 +123,7 @@ p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 
   : "To be confirmed"
 
   // ════════════════════════════════════════════════════════════════════════════
-  // APPROVAL LETTER — original structure + Documents Required section
+  // APPROVAL LETTER
   // ════════════════════════════════════════════════════════════════════════════
   if (type === "approval") {
     const titleW = fontBold.widthOfTextAtSize("APPROVAL LETTER", 13);
@@ -179,7 +178,6 @@ p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 
     });
     gap(8);
 
-    // ── Documents Required ──────────────────────────────────────────────────
     w("Documents Required:", true);
     gap(2);
     w("Please bring the following original documents along with one set of photocopies");
@@ -266,7 +264,7 @@ p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // JOINING LETTER — offer letter style
+  // JOINING LETTER
   // ════════════════════════════════════════════════════════════════════════════
   if (type === "joining") {
     const title = "JOINING CONFIRMATION LETTER";
@@ -301,7 +299,6 @@ p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 
     w("association with us will be mutually rewarding and fulfilling.");
     gap(6);
 
-    // Employment Details
     w("Employment Details:", true);
     gap(2);
     const joiningRows = [
@@ -322,7 +319,6 @@ p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 
     });
     gap(8);
 
-    // Salary Structure
     if (data.stipend) {
       checkPage(20);
       const stipendLabelW = fontBold.widthOfTextAtSize("Salary Structure: ", 10);
@@ -332,12 +328,10 @@ p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 
       gap(6);
     }
 
-    // Work Schedule
     w("Work Schedule:", true);
     w("Your working hours will be from 9:00 AM to 7:00 PM, Monday to Saturday.");
     gap(6);
 
-    // Terms & Conditions
     w("Terms & Conditions:", true);
     gap(2);
     const joiningConditions = [
@@ -404,6 +398,113 @@ p.drawText("www.seyontech.in", { x: 346, y: FOOTER_H - 35, font: fontReg, size: 
   }
 
   return await doc.save();
+}
+
+// ── Shared email sender ─────────────────────────────────────────────────────
+async function sendEmail(payload: Record<string, unknown>) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+// ── Admin email copy per event type ─────────────────────────────────────────
+function buildAdminEmail(
+  type: string,
+  vars: { name: string; referenceId: string; position?: string; department?: string; joinDate?: string; status?: string },
+): { subject: string; html: string } | null {
+  const { name, referenceId, position, department, joinDate, status } = vars;
+  const dashboardLink = `${ADMIN_DASHBOARD_URL}/${referenceId}`;
+  const detailRow = (label: string, value?: string) =>
+    value ? `<p style="margin:0;color:#666">${label}</p><p style="margin:4px 0 12px;font-weight:bold">${value}</p>` : "";
+
+  const wrap = (heading: string, accent: string, body: string) => `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+      <div style="background:#fafafa;border-left:4px solid ${accent};padding:16px 20px">
+        <h2 style="margin:0;color:${accent}">${heading}</h2>
+      </div>
+      ${body}
+      <a href="${dashboardLink}"
+        style="display:inline-block;margin-top:16px;background:${accent};color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:500">
+        View in dashboard
+      </a>
+      <p style="margin-top:24px;color:#999;font-size:12px">Automated notification from Helix HR</p>
+    </div>`;
+
+  switch (type) {
+    case "confirmation":
+      return {
+        subject: `🆕 New onboarding submission — ${name} (${referenceId})`,
+        html: wrap("New onboarding submission", "#2563eb", `
+          <p style="margin-top:16px">A new onboarding application was just submitted and needs review.</p>
+          <div style="background:#f4f4f5;border-radius:8px;padding:16px;margin:20px 0;font-size:13px">
+            <p style="margin:0;color:#666">Reference ID</p>
+            <p style="margin:4px 0 12px;font-weight:bold;font-family:monospace">${referenceId}</p>
+            <p style="margin:0;color:#666">Applicant</p>
+            <p style="margin:4px 0 0;font-weight:bold">${name}</p>
+          </div>`),
+      };
+
+    case "approval-letter":
+      return {
+        subject: `✅ Approval letter sent — ${name} (${referenceId})`,
+        html: wrap("Approval letter sent to candidate", "#16a34a", `
+          <p style="margin-top:16px">The approval letter has been emailed to the candidate below.</p>
+          <div style="background:#f4f4f5;border-radius:8px;padding:16px;margin:20px 0;font-size:13px">
+            <p style="margin:0;color:#666">Reference ID</p>
+            <p style="margin:4px 0 12px;font-weight:bold;font-family:monospace">${referenceId}</p>
+            <p style="margin:0;color:#666">Candidate</p>
+            <p style="margin:4px 0 12px;font-weight:bold">${name}</p>
+            ${detailRow("Position", position)}
+            ${detailRow("Department", department)}
+            ${detailRow("Expected join date", joinDate)}
+          </div>`),
+      };
+
+    case "joining-letter":
+      return {
+        subject: `🎊 Joining letter sent — ${name} (${referenceId})`,
+        html: wrap("Joining confirmation letter sent", "#2563eb", `
+          <p style="margin-top:16px">The joining confirmation letter has been emailed to the new joiner below.</p>
+          <div style="background:#f4f4f5;border-radius:8px;padding:16px;margin:20px 0;font-size:13px">
+            <p style="margin:0;color:#666">Reference ID</p>
+            <p style="margin:4px 0 12px;font-weight:bold;font-family:monospace">${referenceId}</p>
+            <p style="margin:0;color:#666">Employee</p>
+            <p style="margin:4px 0 12px;font-weight:bold">${name}</p>
+            ${detailRow("Position", position)}
+            ${detailRow("Department", department)}
+            ${detailRow("Date of joining", joinDate)}
+          </div>`),
+      };
+
+    case "status-update": {
+      const statusColors: Record<string, string> = {
+        APPROVED: "#16a34a", REJECTED: "#dc2626", JOINED: "#2563eb", PENDING: "#d97706",
+      };
+      const accent = statusColors[status ?? ""] ?? "#1a1a1a";
+      return {
+        subject: `📋 Status changed — ${name} is now ${status} (${referenceId})`,
+        html: wrap("Application status changed", accent, `
+          <p style="margin-top:16px">The status for the applicant below has been updated.</p>
+          <div style="background:#f4f4f5;border-radius:8px;padding:16px;margin:20px 0;font-size:13px">
+            <p style="margin:0;color:#666">Reference ID</p>
+            <p style="margin:4px 0 12px;font-weight:bold;font-family:monospace">${referenceId}</p>
+            <p style="margin:0;color:#666">Applicant</p>
+            <p style="margin:4px 0 12px;font-weight:bold">${name}</p>
+            <p style="margin:0;color:#666">New status</p>
+            <p style="margin:4px 0 0;font-weight:bold;color:${accent}">${status}</p>
+          </div>`),
+      };
+    }
+
+    default:
+      return null;
+  }
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -527,20 +628,25 @@ serve(async (req) => {
         </div>`;
     }
 
-    const body: Record<string, unknown> = { from: FROM_EMAIL, to, subject, html };
-    if (attachments.length > 0) body.attachments = attachments;
+    // ── Send to the applicant, and (if configured) notify admins in parallel ──
+    const emailTasks: Promise<unknown>[] = [];
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify(body),
-    });
+    const applicantBody: Record<string, unknown> = { from: FROM_EMAIL, to, subject, html };
+    if (attachments.length > 0) applicantBody.attachments = attachments;
+    emailTasks.push(sendEmail(applicantBody));
 
-    const data = await res.json();
-    return new Response(JSON.stringify(data), {
+    if (ADMIN_RECIPIENTS.length > 0) {
+      const adminEmail = buildAdminEmail(type, { name, referenceId, position, department, joinDate, status });
+      if (adminEmail) {
+        emailTasks.push(
+          sendEmail({ from: FROM_EMAIL, to: ADMIN_RECIPIENTS, subject: adminEmail.subject, html: adminEmail.html }),
+        );
+      }
+    }
+
+    const [applicantResult, adminResult] = await Promise.all(emailTasks);
+
+    return new Response(JSON.stringify({ applicant: applicantResult, admin: adminResult ?? null }), {
       headers: { "Content-Type": "application/json", ...CORS },
     });
 
