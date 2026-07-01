@@ -1,6 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { Chrome, Loader2, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Field, TextInput } from "@/components/form-fields";
 import {
   isSupabaseConfigured,
@@ -9,7 +9,11 @@ import {
 } from "@/lib/supabase-client";
 import { requireGuest } from "@/lib/route-guards";
 import { AuthShell } from "@/components/auth-shell";
-
+ 
+// ── Admin invite code (store this only in your .env, never commit it) ──
+// Set VITE_ADMIN_INVITE_CODE=your-secret-code in your .env file
+const ADMIN_INVITE_CODE = import.meta.env.VITE_ADMIN_INVITE_CODE as string | undefined;
+ 
 export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [{ title: "Create Account - Seyon Onboarding" }],
@@ -17,18 +21,20 @@ export const Route = createFileRoute("/signup")({
   beforeLoad: requireGuest,
   component: Signup,
 });
-
+ 
 function Signup() {
   const navigate  = useNavigate();
-
+ 
   const [fullName,    setFullName]    = useState("");
   const [email,       setEmail]       = useState("");
   const [password,    setPassword]    = useState("");
   const [confirm,     setConfirm]     = useState("");
+  const [inviteCode,  setInviteCode]  = useState("");
+  const [showInvite,  setShowInvite]  = useState(false);
   const [error,       setError]       = useState("");
   const [success,     setSuccess]     = useState(false);
   const [loading,     setLoading]     = useState(false);
-
+ 
   const signUpWithGoogle = async () => {
     if (!isSupabaseConfigured) { setError(supabaseConfigMessage); return; }
     setError("");
@@ -38,17 +44,26 @@ function Signup() {
     });
     if (googleError) setError(googleError.message);
   };
-
+ 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!isSupabaseConfigured) { setError(supabaseConfigMessage); return; }
     if (password !== confirm)  { setError("Passwords do not match."); return; }
     if (password.length < 8)   { setError("Password must be at least 8 characters."); return; }
-
+ 
+    // Validate invite code if provided
+    const isAdminSignup = inviteCode.trim() !== "";
+    if (isAdminSignup) {
+      if (!ADMIN_INVITE_CODE || inviteCode.trim() !== ADMIN_INVITE_CODE) {
+        setError("Invalid invite code.");
+        return;
+      }
+    }
+ 
     setLoading(true);
     setError("");
-
-    const { error: signUpError } = await supabase.auth.signUp({
+ 
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -56,17 +71,25 @@ function Signup() {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-
+ 
     if (signUpError) {
       setError(signUpError.message);
       setLoading(false);
       return;
     }
-
+ 
+    // If admin invite code was valid, promote the user to admin in profiles table
+    if (isAdminSignup && data.user) {
+      await supabase
+        .from("profiles")
+        .update({ role: "admin" })
+        .eq("id", data.user.id);
+    }
+ 
     setLoading(false);
     setSuccess(true);
   };
-
+ 
   if (success) {
     return (
       <AuthShell
@@ -87,7 +110,7 @@ function Signup() {
       </AuthShell>
     );
   }
-
+ 
   return (
     <AuthShell
       title="Create account"
@@ -103,7 +126,7 @@ function Signup() {
             autoComplete="name"
           />
         </Field>
-
+ 
         <Field label="Email address" required>
           <TextInput
             type="email"
@@ -113,7 +136,7 @@ function Signup() {
             autoComplete="email"
           />
         </Field>
-
+ 
         <Field label="Password" required>
           <TextInput
             type="password"
@@ -123,7 +146,7 @@ function Signup() {
             autoComplete="new-password"
           />
         </Field>
-
+ 
         <Field label="Confirm password" required>
           <TextInput
             type="password"
@@ -133,11 +156,35 @@ function Signup() {
             autoComplete="new-password"
           />
         </Field>
-
+ 
+        {/* Admin invite code — hidden by default */}
+        <div>
+          <button
+            type="button"
+            onClick={() => { setShowInvite((v) => !v); setInviteCode(""); }}
+            className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+          >
+            {showInvite ? "Remove invite code" : "Have an admin invite code?"}
+          </button>
+ 
+          {showInvite && (
+            <div className="mt-2">
+              <Field label="Admin invite code" required={false}>
+                <TextInput
+                  type="password"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="Enter invite code"
+                />
+              </Field>
+            </div>
+          )}
+        </div>
+ 
         {error && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
         )}
-
+ 
         <button
           type="submit"
           disabled={loading}
@@ -147,7 +194,7 @@ function Signup() {
           Create account
         </button>
       </form>
-
+ 
       <button
         type="button"
         onClick={signUpWithGoogle}
@@ -156,7 +203,7 @@ function Signup() {
         <Chrome className="h-4 w-4" />
         Continue with Google
       </button>
-
+ 
       <div className="mt-5 flex items-center justify-end text-sm">
         <Link to="/login" className="text-primary hover:underline">
           Already have an account?
@@ -165,3 +212,4 @@ function Signup() {
     </AuthShell>
   );
 }
+ 
