@@ -111,68 +111,64 @@ function Login() {
       </div>
  
       {/* Form */}
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Email address" required>
-          <TextInput
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={isAdmin ? "admin@company.com" : "you@gmail.com"}
-            autoComplete="email"
-          />
-        </Field>
- 
-        <Field label="Password" required>
-          <TextInput
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            autoComplete="current-password"
-          />
-        </Field>
- 
-        {error && (
-          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
-        )}
- 
-        <button
-          type="submit"
-          disabled={loading}
-          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-primary-foreground transition-colors disabled:opacity-60 ${
-            isAdmin
-              ? "bg-foreground hover:bg-foreground/90"
-              : "bg-primary hover:bg-primary/90"
-          }`}
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-          {isAdmin ? "Sign in as Admin" : "Sign in"}
-        </button>
-      </form>
- 
-      {/* Google — only for users */}
-      {!isAdmin && (
-        <button
-          type="button"
-          onClick={loginWithGoogle}
-          className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium transition-colors hover:bg-secondary"
-        >
-          <Chrome className="h-4 w-4" />
-          Continue with Google
-        </button>
-      )}
- 
-      <div className="mt-5 flex items-center justify-between text-sm">
-        <Link to="/forgot-password" className="text-primary hover:underline">
-          Forgot password?
-        </Link>
-        {/* Sign up link — only for users */}
-        {!isAdmin && (
-          <Link to="/signup" className="text-primary hover:underline">
-            Create account
-          </Link>
-        )}
-      </div>
+<form onSubmit={submit} className="space-y-4">
+  <Field label="Email address" required>
+    <TextInput
+      type="email"
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+      placeholder={isAdmin ? "admin@company.com" : "you@gmail.com"}
+      autoComplete="email"
+    />
+  </Field>
+
+  <Field label="Password" required>
+    <TextInput
+      type="password"
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+      placeholder="••••••••"
+      autoComplete="current-password"
+    />
+  </Field>
+
+  {error && (
+    <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+  )}
+
+  <button
+    type="submit"
+    disabled={loading}
+    className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-primary-foreground transition-colors disabled:opacity-60 ${
+      isAdmin
+        ? "bg-foreground hover:bg-foreground/90"
+        : "bg-primary hover:bg-primary/90"
+    }`}
+  >
+    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+    {isAdmin ? "Sign in as Admin" : "Sign in"}
+  </button>
+</form>
+
+{/* Google — now for both users and admins */}
+<button
+  type="button"
+  onClick={loginWithGoogle}
+  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium transition-colors hover:bg-secondary"
+>
+  <Chrome className="h-4 w-4" />
+  Continue with Google
+</button>
+
+<div className="mt-5 flex items-center justify-between text-sm">
+  <Link to="/forgot-password" className="text-primary hover:underline">
+    Forgot password?
+  </Link>
+  {/* Create account — now for both users and admins */}
+  <Link to="/signup" className="text-primary hover:underline">
+    Create account
+  </Link>
+</div>
     </AuthShell>
   );
 }
