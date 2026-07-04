@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import * as supabaseJs from "@supabase/supabase-js";
+const { createClient } = supabaseJs as any;
 import { 
   ROLES,
   PERMISSIONS,
@@ -12,16 +13,21 @@ import {
 } from "./role-permissions";
  
 // ── These match your existing env vars ──────────────────────────
-const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL  as string;
-const supabaseKey  = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? "https://example.supabase.co").trim();
+const supabaseKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? "placeholder-anon-key").trim();
  
 export const isSupabaseConfigured =
-  Boolean(supabaseUrl) && Boolean(supabaseKey);
+  Boolean(import.meta.env.VITE_SUPABASE_URL) && Boolean(import.meta.env.VITE_SUPABASE_ANON_KEY);
  
 export const supabaseConfigMessage =
   "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.";
  
-export const supabase = createClient(supabaseUrl ?? "", supabaseKey ?? "");
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
 
 // ── Re-export roles and permissions ────────────────────────────
 export { ROLES, PERMISSIONS, ROLE_PERMISSIONS };

@@ -11,7 +11,10 @@ const required = (name: string) => {
 const usableKey = (value: string | undefined) =>
   value && !value.includes("paste ") && value !== "eyJ..." ? value : undefined;
 
-const supabaseServiceRoleKey = usableKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabaseUrl = usableKey(process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL);
+const supabaseServiceRoleKey = usableKey(
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY,
+);
 const supabaseAnonKey = usableKey(
   process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY,
 );
@@ -19,7 +22,7 @@ const supabaseAnonKey = usableKey(
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: required("DATABASE_URL"),
-  supabaseUrl: required("SUPABASE_URL"),
+  supabaseUrl: supabaseUrl ?? required("SUPABASE_URL"),
   supabaseServiceRoleKey,
   supabaseServerKey:
     supabaseServiceRoleKey ?? supabaseAnonKey ?? required("SUPABASE_SERVICE_ROLE_KEY"),

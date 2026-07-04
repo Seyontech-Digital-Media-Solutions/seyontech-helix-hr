@@ -3,7 +3,7 @@ import { config } from "./config";
 
 export const supabaseAdmin = createClient(config.supabaseUrl, config.supabaseServerKey, {
   auth: {
-    autoRefreshToken: false,
-    persistSession: false,
+    autoRefreshToken: true,
+    persistSession: true,
   },
 });

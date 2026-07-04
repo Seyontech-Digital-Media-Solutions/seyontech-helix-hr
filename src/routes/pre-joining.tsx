@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import { Stepper } from "@/components/form-stepper";
+import { uploadFile } from "@/lib/supabaseStorage";
 import {
   Field,
   FileDrop,
@@ -21,8 +22,7 @@ export const Route = createFileRoute("/pre-joining")({
       { title: "Pre-Joining Form — Helix HR" },
       {
         name: "description",
-        content:
-          "Submit your personal, professional, banking and document information before joining.",
+        content: "Submit your personal, professional, banking and document information before joining.",
       },
     ],
   }),
@@ -31,8 +31,9 @@ export const Route = createFileRoute("/pre-joining")({
 
 const DRAFT_KEY = "ho_prejoin_v1";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface FormState {
-  // personal
   fullName: string;
   dob: string;
   gender: string;
@@ -44,7 +45,6 @@ interface FormState {
   permanentAddress: string;
   emergencyName: string;
   emergencyNumber: string;
-  // professional
   position: string;
   department: string;
   joinDate: string;
@@ -53,16 +53,13 @@ interface FormState {
   skills: string;
   linkedin: string;
   portfolio: string;
-  // bank
   bankName: string;
   accountHolder: string;
   accountNumber: string;
   ifsc: string;
   branch: string;
-  // declaration
   signature: string;
   agree: boolean;
-  // file names (placeholders)
   fileAadhaar: string;
   filePan: string;
   fileResume: string;
@@ -70,6 +67,8 @@ interface FormState {
   fileEdu: string;
   fileExp: string;
 }
+
+type FormErrors = Partial<Record<keyof FormState, string>>;
 
 const initial: FormState = {
   fullName: "",
@@ -114,11 +113,83 @@ const STEPS = [
   { id: "review", label: "Review & Submit" },
 ];
 
+// ─── Validation ───────────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^[+\d][\d\s\-()]{7,14}$/;
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const URL_RE = /^https?:\/\/.+/;
+
+function validateStepFields(step: number, f: FormState): FormErrors {
+  const errors: FormErrors = {};
+
+  if (step === 0) {
+    if (!f.fullName.trim()) errors.fullName = "Full name is required.";
+    if (!f.dob) errors.dob = "Date of birth is required.";
+    if (!f.gender) errors.gender = "Please select a gender.";
+    if (!f.mobile.trim()) {
+      errors.mobile = "Mobile number is required.";
+    } else if (!PHONE_RE.test(f.mobile.trim())) {
+      errors.mobile = "Enter a valid phone number.";
+    }
+    if (f.altMobile.trim() && !PHONE_RE.test(f.altMobile.trim())) {
+      errors.altMobile = "Enter a valid alternate phone number.";
+    }
+    if (!f.email.trim()) {
+      errors.email = "Email address is required.";
+    } else if (!EMAIL_RE.test(f.email.trim())) {
+      errors.email = "Enter a valid email address.";
+    }
+    if (!f.currentAddress.trim()) errors.currentAddress = "Current address is required.";
+    if (!f.permanentAddress.trim()) errors.permanentAddress = "Permanent address is required.";
+    if (!f.emergencyName.trim()) errors.emergencyName = "Emergency contact person is required.";
+    if (!f.emergencyNumber.trim()) {
+      errors.emergencyNumber = "Emergency contact number is required.";
+    } else if (!PHONE_RE.test(f.emergencyNumber.trim())) {
+      errors.emergencyNumber = "Enter a valid emergency contact number.";
+    }
+  }
+
+  if (step === 1) {
+    if (!f.position.trim()) errors.position = "Position is required.";
+    if (!f.department) errors.department = "Please select a department.";
+    if (!f.joinDate) errors.joinDate = "Expected joining date is required.";
+    if (!f.experience.trim()) errors.experience = "Total experience is required.";
+    if (!f.prevCompany.trim()) errors.prevCompany = "Previous company is required.";
+    if (!f.skills.trim()) errors.skills = "Skills are required.";
+    // LinkedIn and Portfolio/GitHub URL are optional — no validation.
+  }
+
+  if (step === 2) {
+    if (!f.fileAadhaar) errors.fileAadhaar = "Aadhaar card is required.";
+    if (!f.filePan) errors.filePan = "PAN card is required.";
+    if (!f.fileResume) errors.fileResume = "Resume / CV is required.";
+    if (!f.filePhoto) errors.filePhoto = "Passport size photo is required.";
+    if (!f.fileEdu) errors.fileEdu = "Educational certificates are required.";
+    //if (!f.fileExp) errors.fileExp = "Experience certificates are required.";
+  }
+
+  if (step === 3) {
+    // No validation — Banking step is fully optional.
+  }
+
+  if (step === 4) {
+    if (!f.signature.trim()) errors.signature = "Digital signature is required.";
+    if (!f.agree) errors.agree = "You must accept the declaration to submit.";
+  }
+
+  return errors;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 function PreJoining() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [form, setForm] = useState<FormState>(initial);
   const [step, setStep] = useState(0);
+  const [touchedFields, setTouchedFields] = useState<Partial<Record<keyof FormState, boolean>>>({});
+  const [stepSubmitAttempted, setStepSubmitAttempted] = useState(false);
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -137,61 +208,92 @@ function PreJoining() {
     return () => clearTimeout(t);
   }, [form, submitted]);
 
-  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
+    setTouchedFields((t) => ({ ...t, [k]: true }));
+  };
 
-  const stepValid = useMemo(() => validateStep(step, form), [step, form]);
+  const stepErrors = useMemo(() => validateStepFields(step, form), [step, form]);
+  const stepValid = Object.keys(stepErrors).length === 0;
 
-  const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
-  const back = () => setStep((s) => Math.max(0, s - 1));
+  const visibleErrors: FormErrors = {};
+  for (const key of Object.keys(stepErrors) as (keyof FormState)[]) {
+    if (stepSubmitAttempted || touchedFields[key]) {
+      visibleErrors[key] = stepErrors[key as keyof FormErrors];
+    }
+  }
+
+  const next = () => {
+    setStepSubmitAttempted(true);
+    if (!stepValid) return;
+    setStepSubmitAttempted(false);
+    setTouchedFields({});
+    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+  };
+
+  const back = () => {
+    setStepSubmitAttempted(false);
+    setTouchedFields({});
+    setStep((s) => Math.max(0, s - 1));
+  };
+
+  const handleJump = (target: number) => {
+    if (target < step) {
+      setStepSubmitAttempted(false);
+      setTouchedFields({});
+      setStep(target);
+    }
+  };
 
   const submit = async () => {
-  if (!user) {
-    navigate({ to: "/login" });
-    return;
-  }
+    setStepSubmitAttempted(true);
+    if (!stepValid) return;
 
-  setSubmitting(true);
-  setSubmitError("");
+    if (!user) {
+      navigate({ to: "/login" });
+      return;
+    }
 
-  try {
-    const { data, error } = await supabase
-      .from("Submission")
-      .insert({
-        type: "PRE_JOINING",
-        referenceId: `PRE-${Date.now()}`,
-        applicantName: form.fullName,
-        email: form.email,
-        position: form.position,
-        department: form.department,
-        payload: form,
-        submittedById: user.id,
-        updatedAt: new Date().toISOString(),
-      })
-      .select("id, referenceId")  // ✅ added referenceId here
-      .single();
+    setSubmitting(true);
+    setSubmitError("");
 
-    if (error) throw new Error(error.message);
+    try {
+      const { data, error } = await supabase
+        .from("Submission")
+        .insert({
+          type: "PRE_JOINING",
+          referenceId: `PRE-${Date.now()}`,
+          applicantName: form.fullName,
+          email: form.email,
+          position: form.position,
+          department: form.department,
+          payload: form,
+          submittedById: user.id,
+          updatedAt: new Date().toISOString(),
+        })
+        .select("id, referenceId")
+        .single();
 
-    // ✅ Send confirmation email
-    await supabase.functions.invoke("send-email", {
-      body: {
-        type: "confirmation",
-        to: form.email,          // pre-joining uses email
-        name: form.fullName,     // pre-joining uses fullName
-        referenceId: data.referenceId,
-      },
-    });
+      if (error) throw new Error(error.message);
 
-    clearDraft(DRAFT_KEY);
-    setSubmitted(data.referenceId); // ✅ fixed: was data.id before
-  } catch (error) {
-    setSubmitError(error instanceof Error ? error.message : "Submission failed");
-  } finally {
-    setSubmitting(false);
-  }
-};
-  
+      await supabase.functions.invoke("send-email", {
+        body: {
+          type: "confirmation",
+          to: form.email,
+          name: form.fullName,
+          referenceId: data.referenceId,
+        },
+      });
+
+      clearDraft(DRAFT_KEY);
+      setSubmitted(data.referenceId);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Submission failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (submitted) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
@@ -214,21 +316,26 @@ function PreJoining() {
           Tell us about yourself
         </h1>
         <p className="text-sm text-muted-foreground">
-          We'll use this to set up your account before day one. Your progress is saved
-          automatically.
+          We'll use this to set up your account before day one. Your progress is saved automatically.
         </p>
       </div>
 
       <div className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-7">
-        <Stepper steps={STEPS} current={step} onJump={setStep} />
+        <Stepper steps={STEPS} current={step} onJump={handleJump} />
 
         <div className="mt-7 space-y-6">
-          {step === 0 && <PersonalStep form={form} set={set} />}
-          {step === 1 && <ProfessionalStep form={form} set={set} />}
-          {step === 2 && <DocumentsStep form={form} set={set} />}
-          {step === 3 && <BankStep form={form} set={set} />}
-          {step === 4 && <ReviewStep form={form} set={set} />}
+          {step === 0 && <PersonalStep form={form} set={set} errors={visibleErrors} />}
+          {step === 1 && <ProfessionalStep form={form} set={set} errors={visibleErrors} />}
+          {step === 2 && <DocumentsStep form={form} set={set} errors={visibleErrors} />}
+          {step === 3 && <BankStep form={form} set={set} errors={visibleErrors} />}
+          {step === 4 && <ReviewStep form={form} set={set} errors={visibleErrors} />}
         </div>
+
+        {stepSubmitAttempted && !stepValid && (
+          <p className="mt-5 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            Please fill in all required fields before continuing.
+          </p>
+        )}
 
         {submitError && (
           <p className="mt-5 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -254,8 +361,7 @@ function PreJoining() {
               <button
                 type="button"
                 onClick={next}
-                disabled={!stepValid}
-                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Continue <ArrowRight className="h-4 w-4" />
               </button>
@@ -263,7 +369,7 @@ function PreJoining() {
               <button
                 type="button"
                 onClick={submit}
-                disabled={!form.agree || !form.signature || submitting}
+                disabled={submitting}
                 className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit form"}
@@ -276,39 +382,29 @@ function PreJoining() {
   );
 }
 
-function validateStep(step: number, f: FormState): boolean {
-  if (step === 0) return !!(f.fullName && f.email && f.mobile && f.dob && f.gender);
-  if (step === 1) return !!(f.position && f.department && f.joinDate);
-  if (step === 2) return true;
-  if (step === 3) return !!(f.bankName && f.accountNumber && f.ifsc);
-  return true;
-}
+// ─── Step prop types ──────────────────────────────────────────────────────────
 
 type StepProps = {
   form: FormState;
   set: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
+  errors: FormErrors;
 };
 
-function PersonalStep({ form, set }: StepProps) {
+// ─── Steps ────────────────────────────────────────────────────────────────────
+
+function PersonalStep({ form, set, errors }: StepProps) {
   return (
     <div className="space-y-5">
-      <SectionTitle
-        title="Personal Information"
-        description="Basic details and contact information."
-      />
+      <SectionTitle title="Personal Information" description="Basic details and contact information." />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Full name" required>
-          <TextInput
-            value={form.fullName}
-            onChange={(e) => set("fullName", e.target.value)}
-            placeholder="Jane Doe"
-          />
+        <Field label="Full name" required error={errors.fullName}>
+          <TextInput value={form.fullName} onChange={(e) => set("fullName", e.target.value)} placeholder="Jane Doe" aria-invalid={!!errors.fullName} />
         </Field>
-        <Field label="Date of birth" required>
-          <TextInput type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)} />
+        <Field label="Date of birth" required error={errors.dob}>
+          <TextInput type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)} aria-invalid={!!errors.dob} />
         </Field>
-        <Field label="Gender" required>
-          <Select value={form.gender} onChange={(e) => set("gender", e.target.value)}>
+        <Field label="Gender" required error={errors.gender}>
+          <Select value={form.gender} onChange={(e) => set("gender", e.target.value)} aria-invalid={!!errors.gender}>
             <option value="">Select</option>
             <option>Female</option>
             <option>Male</option>
@@ -324,170 +420,120 @@ function PersonalStep({ form, set }: StepProps) {
             ))}
           </Select>
         </Field>
-        <Field label="Mobile number" required>
-          <TextInput
-            type="tel"
-            value={form.mobile}
-            onChange={(e) => set("mobile", e.target.value)}
-            placeholder="+91 98765 43210"
-          />
+        <Field label="Mobile number" required error={errors.mobile}>
+          <TextInput type="tel" value={form.mobile} onChange={(e) => set("mobile", e.target.value)} placeholder="+91 98765 43210" aria-invalid={!!errors.mobile} />
         </Field>
-        <Field label="Alternate number">
-          <TextInput
-            type="tel"
-            value={form.altMobile}
-            onChange={(e) => set("altMobile", e.target.value)}
-          />
+        <Field label="Alternate number" error={errors.altMobile}>
+          <TextInput type="tel" value={form.altMobile} onChange={(e) => set("altMobile", e.target.value)} aria-invalid={!!errors.altMobile} />
         </Field>
-        <Field label="Email address" required className="sm:col-span-2">
-          <TextInput
-            type="email"
-            value={form.email}
-            onChange={(e) => set("email", e.target.value)}
-            placeholder="jane@example.com"
-          />
+        <Field label="Email address" required className="sm:col-span-2" error={errors.email}>
+          <TextInput type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="jane@example.com" aria-invalid={!!errors.email} />
         </Field>
-        <Field label="Current address" className="sm:col-span-2">
-          <TextArea
-            value={form.currentAddress}
-            onChange={(e) => set("currentAddress", e.target.value)}
-          />
+        <Field label="Current address" required className="sm:col-span-2" error={errors.currentAddress}>
+          <TextArea value={form.currentAddress} onChange={(e) => set("currentAddress", e.target.value)} aria-invalid={!!errors.currentAddress} />
         </Field>
-        <Field label="Permanent address" className="sm:col-span-2">
-          <TextArea
-            value={form.permanentAddress}
-            onChange={(e) => set("permanentAddress", e.target.value)}
-          />
+        <Field label="Permanent address" required className="sm:col-span-2" error={errors.permanentAddress}>
+          <TextArea value={form.permanentAddress} onChange={(e) => set("permanentAddress", e.target.value)} aria-invalid={!!errors.permanentAddress} />
         </Field>
-        <Field label="Emergency contact person">
-          <TextInput
-            value={form.emergencyName}
-            onChange={(e) => set("emergencyName", e.target.value)}
-          />
+        <Field label="Emergency contact person" required error={errors.emergencyName}>
+          <TextInput value={form.emergencyName} onChange={(e) => set("emergencyName", e.target.value)} aria-invalid={!!errors.emergencyName} />
         </Field>
-        <Field label="Emergency contact number">
-          <TextInput
-            type="tel"
-            value={form.emergencyNumber}
-            onChange={(e) => set("emergencyNumber", e.target.value)}
-          />
+        <Field label="Emergency contact number" required error={errors.emergencyNumber}>
+          <TextInput type="tel" value={form.emergencyNumber} onChange={(e) => set("emergencyNumber", e.target.value)} aria-invalid={!!errors.emergencyNumber} />
         </Field>
       </div>
     </div>
   );
 }
 
-function ProfessionalStep({ form, set }: StepProps) {
+function ProfessionalStep({ form, set, errors }: StepProps) {
   return (
     <div className="space-y-5">
-      <SectionTitle
-        title="Professional Information"
-        description="Your role, experience, and links."
-      />
+      <SectionTitle title="Professional Information" description="Your role, experience, and links." />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Applied position" required>
-          <TextInput
-            value={form.position}
-            onChange={(e) => set("position", e.target.value)}
-            placeholder="Software Engineer"
-          />
+        <Field label="Applied position" required error={errors.position}>
+          <TextInput value={form.position} onChange={(e) => set("position", e.target.value)} placeholder="Software Engineer" aria-invalid={!!errors.position} />
         </Field>
-        <Field label="Department" required>
-          <Select value={form.department} onChange={(e) => set("department", e.target.value)}>
+        <Field label="Department" required error={errors.department}>
+          <Select value={form.department} onChange={(e) => set("department", e.target.value)} aria-invalid={!!errors.department}>
             <option value="">Select</option>
-            {[
-              "Engineering",
-              "Design",
-              "Product",
-              "Marketing",
-              "Sales",
-              "People",
-              "Finance",
-              "Operations",
-            ].map((d) => (
+            {["Engineering","Design","Product","Marketing","Sales","People","Finance","Operations"].map((d) => (
               <option key={d}>{d}</option>
             ))}
           </Select>
         </Field>
-        <Field label="Expected joining date" required>
-          <TextInput
-            type="date"
-            value={form.joinDate}
-            onChange={(e) => set("joinDate", e.target.value)}
-          />
+        <Field label="Expected joining date" required error={errors.joinDate}>
+          <TextInput type="date" value={form.joinDate} onChange={(e) => set("joinDate", e.target.value)} aria-invalid={!!errors.joinDate} />
         </Field>
-        <Field label="Total experience">
-          <TextInput
-            value={form.experience}
-            onChange={(e) => set("experience", e.target.value)}
-            placeholder="3 years"
-          />
+        <Field label="Total experience" required error={errors.experience}>
+          <TextInput value={form.experience} onChange={(e) => set("experience", e.target.value)} placeholder="3 years" aria-invalid={!!errors.experience} />
         </Field>
-        <Field label="Previous company" className="sm:col-span-2">
-          <TextInput
-            value={form.prevCompany}
-            onChange={(e) => set("prevCompany", e.target.value)}
-          />
+        <Field label="Previous company" required className="sm:col-span-2" error={errors.prevCompany}>
+          <TextInput value={form.prevCompany} onChange={(e) => set("prevCompany", e.target.value)} aria-invalid={!!errors.prevCompany} />
         </Field>
-        <Field label="Skills" hint="Comma separated" className="sm:col-span-2">
-          <TextInput
-            value={form.skills}
-            onChange={(e) => set("skills", e.target.value)}
-            placeholder="TypeScript, React, PostgreSQL"
-          />
+        <Field label="Skills" hint="Comma separated" required className="sm:col-span-2" error={errors.skills}>
+          <TextInput value={form.skills} onChange={(e) => set("skills", e.target.value)} placeholder="TypeScript, React, PostgreSQL" aria-invalid={!!errors.skills} />
         </Field>
-        <Field label="LinkedIn profile">
-          <TextInput
-            type="url"
-            value={form.linkedin}
-            onChange={(e) => set("linkedin", e.target.value)}
-            placeholder="https://linkedin.com/in/..."
-          />
+        <Field label="LinkedIn profile" error={errors.linkedin}>
+          <TextInput type="url" value={form.linkedin} onChange={(e) => set("linkedin", e.target.value)} placeholder="https://linkedin.com/in/..." aria-invalid={!!errors.linkedin} />
         </Field>
-        <Field label="Portfolio / GitHub URL">
-          <TextInput
-            type="url"
-            value={form.portfolio}
-            onChange={(e) => set("portfolio", e.target.value)}
-            placeholder="https://github.com/..."
-          />
+        <Field label="Portfolio / GitHub URL" error={errors.portfolio}>
+          <TextInput type="url" value={form.portfolio} onChange={(e) => set("portfolio", e.target.value)} placeholder="https://github.com/..." aria-invalid={!!errors.portfolio} />
         </Field>
       </div>
     </div>
   );
 }
 
-async function uploadFile(file: File, fieldKey: string, userId: string): Promise<string> {
-  const ext = file.name.split(".").pop();
-  const path = `${userId}/${fieldKey}_${Date.now()}.${ext}`;
-  const { error } = await supabase.storage
-    .from("onboarding-documents")
-    .upload(path, file, { upsert: true });
-  if (error) throw new Error(error.message);
-  return path;
-}
-
-function DocumentsStep({ form, set }: StepProps) {
+function DocumentsStep({ form, set, errors }: StepProps) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState<Partial<Record<keyof FormState, boolean>>>({});
+  const [uploadErrors, setUploadErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
-  const files: Array<[keyof FormState, string]> = [
-    ["fileAadhaar", "Aadhaar card"],
-    ["filePan", "PAN card"],
-    ["fileResume", "Resume / CV"],
-    ["filePhoto", "Passport size photo"],
-    ["fileEdu", "Educational certificates"],
-    ["fileExp", "Experience certificates"],
+  const files: Array<[keyof FormState, string, boolean]> = [
+    ["fileAadhaar", "Aadhaar card", true],
+    ["filePan", "PAN card", true],
+    ["fileResume", "Resume / CV", true],
+    ["filePhoto", "Passport size photo", true],
+    ["fileEdu", "Educational certificates", true],
+    ["fileExp", "Experience certificates", false],
   ];
+
+  const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+  const ALLOWED_EXT = /\.(pdf|jpe?g|png)$/i;
+  const MAX_SIZE_MB = 5;
 
   const handleFile = async (key: keyof FormState, file: File | null) => {
     if (!file || !user) return;
+
+    if (key === "fileEdu") {
+      const validType = ALLOWED_TYPES.includes(file.type) || ALLOWED_EXT.test(file.name);
+      if (!validType) {
+        setUploadErrors((e) => ({
+          ...e,
+          [key]: "Only PDF, JPG, or PNG files are allowed.",
+        }));
+        return;
+      }
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+        setUploadErrors((e) => ({
+          ...e,
+          [key]: `File must be smaller than ${MAX_SIZE_MB}MB.`,
+        }));
+        return;
+      }
+    }
+
     setUploading((u) => ({ ...u, [key]: true }));
+    setUploadErrors((e) => ({ ...e, [key]: undefined }));
     try {
-      const path = await uploadFile(file, key, user.id);
+      const path = await uploadFile(file, key, user.id, "pre-joining", form.fullName);
       set(key, path as FormState[typeof key]);
     } catch (err) {
-      alert(`Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      setUploadErrors((e) => ({
+        ...e,
+        [key]: err instanceof Error ? err.message : "Upload failed",
+      }));
     } finally {
       setUploading((u) => ({ ...u, [key]: false }));
     }
@@ -497,60 +543,54 @@ function DocumentsStep({ form, set }: StepProps) {
     <div className="space-y-5">
       <SectionTitle
         title="Documents"
-        description="Upload clear scans or photos. PDF or image formats."
+        description="Upload clear scans or photos. PDF, JPG, or PNG only, max 5MB. Aadhaar, PAN, resume, photo, and educational certificates are mandatory. Experience certificates are optional for freshers."
       />
       <div className="grid gap-3 sm:grid-cols-2">
-        {files.map(([key, label]) => (
-          <FileDrop
-            key={key}
-            label={label}
-            fileName={
-              uploading[key] ? "Uploading…" :
-              form[key] ? "✅ Uploaded" : ""
-            }
-            onChange={(file) => handleFile(key, file)}
-          />
+        {files.map(([key, label, required]) => (
+          <div key={key} className="space-y-1">
+            <FileDrop
+              label={label}
+              required={required}
+              fileName={uploading[key] ? "Uploading…" : form[key] ? "✅ Uploaded" : ""}
+              onChange={(file) => handleFile(key, file)}
+            />
+            {uploadErrors[key] && <p className="text-xs text-destructive">{uploadErrors[key]}</p>}
+            {!form[key] && !uploading[key] && errors[key] && (
+              <p className="text-xs text-destructive">{errors[key]}</p>
+            )}
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-function BankStep({ form, set }: StepProps) {
+function BankStep({ form, set, errors }: StepProps) {
   return (
     <div className="space-y-5">
-      <SectionTitle title="Bank Details" description="For salary credit." />
+      <SectionTitle title="Bank Details" description="For salary credit. These details are optional and can be added later." />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Bank name" required>
-          <TextInput value={form.bankName} onChange={(e) => set("bankName", e.target.value)} />
+        <Field label="Bank name" error={errors.bankName}>
+          <TextInput value={form.bankName} onChange={(e) => set("bankName", e.target.value)} aria-invalid={!!errors.bankName} />
         </Field>
-        <Field label="Account holder name">
-          <TextInput
-            value={form.accountHolder}
-            onChange={(e) => set("accountHolder", e.target.value)}
-          />
+        <Field label="Account holder name" error={errors.accountHolder}>
+          <TextInput value={form.accountHolder} onChange={(e) => set("accountHolder", e.target.value)} aria-invalid={!!errors.accountHolder} />
         </Field>
-        <Field label="Account number" required>
-          <TextInput
-            value={form.accountNumber}
-            onChange={(e) => set("accountNumber", e.target.value)}
-          />
+        <Field label="Account number" error={errors.accountNumber}>
+          <TextInput value={form.accountNumber} onChange={(e) => set("accountNumber", e.target.value)} aria-invalid={!!errors.accountNumber} />
         </Field>
-        <Field label="IFSC code" required>
-          <TextInput
-            value={form.ifsc}
-            onChange={(e) => set("ifsc", e.target.value.toUpperCase())}
-          />
+        <Field label="IFSC code" error={errors.ifsc}>
+          <TextInput value={form.ifsc} onChange={(e) => set("ifsc", e.target.value.toUpperCase())} placeholder="SBIN0001234" aria-invalid={!!errors.ifsc} />
         </Field>
-        <Field label="Branch name" className="sm:col-span-2">
-          <TextInput value={form.branch} onChange={(e) => set("branch", e.target.value)} />
+        <Field label="Branch name" className="sm:col-span-2" error={errors.branch}>
+          <TextInput value={form.branch} onChange={(e) => set("branch", e.target.value)} aria-invalid={!!errors.branch} />
         </Field>
       </div>
     </div>
   );
 }
 
-function ReviewStep({ form, set }: StepProps) {
+function ReviewStep({ form, set, errors }: StepProps) {
   const rows: Array<[string, string]> = [
     ["Full name", form.fullName],
     ["Email", form.email],
@@ -559,12 +599,10 @@ function ReviewStep({ form, set }: StepProps) {
     ["Joining date", form.joinDate],
     ["Bank", `${form.bankName} · ${form.accountNumber}`],
   ];
+
   return (
     <div className="space-y-5">
-      <SectionTitle
-        title="Review & Declaration"
-        description="Verify your details and sign to submit."
-      />
+      <SectionTitle title="Review & Declaration" description="Verify your details and sign to submit." />
       <dl className="divide-y divide-border rounded-lg border border-border bg-muted/30">
         {rows.map(([k, v]) => (
           <div key={k} className="grid grid-cols-3 gap-3 px-4 py-2.5 text-sm">
@@ -576,27 +614,35 @@ function ReviewStep({ form, set }: StepProps) {
         ))}
       </dl>
 
-      <Field label="Digital signature (type your full name)" required>
+      <Field label="Digital signature (type your full name)" required error={errors.signature}>
         <TextInput
           value={form.signature}
           onChange={(e) => set("signature", e.target.value)}
           placeholder="Jane Doe"
           className="font-display italic"
+          aria-invalid={!!errors.signature}
         />
       </Field>
 
-      <label className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm">
-        <input
-          type="checkbox"
-          checked={form.agree}
-          onChange={(e) => set("agree", e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-input accent-[color:var(--primary)]"
-        />
-        <span className="text-foreground/90">
-          I confirm the information provided is accurate and agree to the company's onboarding
-          policies, code of conduct, and data privacy terms.
-        </span>
-      </label>
+      <div className="space-y-1">
+        <label
+          className={`flex items-start gap-3 rounded-lg border p-4 text-sm transition-colors ${
+            errors.agree ? "border-destructive bg-destructive/5" : "border-border bg-muted/30"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={form.agree}
+            onChange={(e) => set("agree", e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-input accent-[color:var(--primary)]"
+          />
+          <span className="text-foreground/90">
+            I confirm the information provided is accurate and agree to the company's onboarding
+            policies, code of conduct, and data privacy terms.
+          </span>
+        </label>
+        {errors.agree && <p className="text-xs text-destructive">{errors.agree}</p>}
+      </div>
     </div>
   );
 }

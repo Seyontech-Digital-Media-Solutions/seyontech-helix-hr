@@ -7,12 +7,14 @@ export function Field({
   label,
   required,
   hint,
+  error,
   children,
   className = "",
 }: {
   label: string;
   required?: boolean;
   hint?: string;
+  error?: string;
   children: ReactNode;
   className?: string;
 }) {
@@ -23,7 +25,11 @@ export function Field({
         {required && <span className="ml-0.5 text-destructive">*</span>}
       </span>
       {children}
-      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+      {/* Show error in red, hint in muted — error takes priority */}
+      {error
+        ? <span className="text-[11px] text-destructive">{error}</span>
+        : hint && <span className="text-[11px] text-muted-foreground">{hint}</span>
+      }
     </label>
   );
 }
@@ -42,18 +48,23 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 
 export function FileDrop({
   label,
+  required,
   onChange,
   fileName,
   accept,
 }: {
   label: string;
+  required?: boolean;
   onChange: (file: File | null) => void;
   fileName?: string;
   accept?: string;
 }) {
   return (
     <label className="group flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border bg-muted/40 px-4 py-5 text-center transition-colors hover:border-primary/60 hover:bg-primary-soft/50">
-      <span className="text-xs font-medium text-foreground">{label}</span>
+      <span className="text-xs font-medium text-foreground">
+        {label}
+        {required && <span className="ml-0.5 text-destructive">*</span>}
+      </span>
       <span className="text-[11px] text-muted-foreground">
         {fileName ? <span className="text-primary">{fileName}</span> : "Click to upload (max 5MB)"}
       </span>
